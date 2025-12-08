@@ -1,0 +1,236 @@
+/**
+ * File: benchmark-calculator.ts
+ * Path: /lib/reports/benchmark-calculator.ts
+ * Last Modified: 2025-12-08
+ * Description: CORREGIDO - Engagement rates en formato correcto + tooltips
+ */
+
+import type { ParsedDataset } from '@/lib/parsers/types'
+import benchmarksData from '@/data/benchmarks.json'
+
+export interface BenchmarkComparison {
+  kpi: string
+  actual: number
+  benchmark: number
+  good: number
+  excellent: number
+  status: 'below' | 'average' | 'good' | 'excellent'
+  gap: number
+  gapPercentage: number
+  description: string
+  platform: 'linkedin' | 'twitter'
+  industryContext?: string // NUEVO para tooltip
+}
+
+export interface PlatformMetrics {
+  platform: 'linkedin' | 'twitter' | 'all'
+  totalPosts: number
+  totalImpressions: number
+  totalEngagements: number
+  avgEngagementRate: number
+  avgEngagementsPerPost: number
+  clickThroughRate: number
+  shareRate: number
+  commentRate: number
+}
+
+export function extractPlatformMetrics(data: ParsedDataset, platform: 'linkedin' | 'twitter' | 'all'): PlatformMetrics {
+  let posts = data.dataPoints
+  
+  if (platform !== 'all') {
+    posts = posts.filter(p => p.source === platform)
+  }
+  
+  const totalPosts = posts.length
+  const totalImpressions = posts.reduce((sum, p) => sum + Number(p.metrics.impressions || 0), 0)
+  const totalEngagements = posts.reduce((sum, p) => sum + Number(p.metrics.engagements || 0), 0)
+  const totalClicks = posts.reduce((sum, p) => sum + Number(p.metrics.clicks || 0), 0)
+  const totalShares = posts.reduce((sum, p) => sum + Number(p.metrics.reposts || p.metrics.shares || 0), 0)
+  const totalComments = posts.reduce((sum, p) => sum + Number(p.metrics.comments || 0), 0)
+  
+  // CORREGIDO: Usar engagement_rate del archivo y convertir correctamente
+  const engagementRates = posts.map(p => {
+    let rate = Number(p.metrics.engagement_rate || 0)
+    // Si está en decimal (< 1), convertir a porcentaje
+    if (rate < 1 && rate > 0) {
+      rate = rate * 100
+    }
+    return rate
+  })
+  
+  // Promedio en % (ej: 22.17), luego convertir a decimal (0.2217) para comparar con benchmarks
+  const avgEngagementRate = totalPosts > 0 
+    ? (engagementRates.reduce((sum, rate) => sum + rate, 0) / totalPosts) / 100
+    : 0
+  
+  return {
+    platform,
+    totalPosts,
+    totalImpressions,
+    totalEngagements,
+    avgEngagementRate, // Ahora está correcto (decimal 0.2217 = 22.17%)
+    avgEngagementsPerPost: totalPosts > 0 ? (totalEngagements / totalPosts) : 0,
+    clickThroughRate: totalImpressions > 0 ? (totalClicks / totalImpressions) : 0,
+    shareRate: totalImpressions > 0 ? (totalShares / totalImpressions) : 0,
+    commentRate: totalImpressions > 0 ? (totalComments / totalImpressions) : 0,
+  }
+}
+
+export function compareEngagementRate(metrics: PlatformMetrics): BenchmarkComparison {
+  const platform: 'linkedin' | 'twitter' = metrics.platform === 'all' ? 'linkedin' : metrics.platform as 'linkedin' | 'twitter'
+  
+  const kpiName = platform === 'linkedin' ? 'engagement_rate_linkedin' : 'engagement_rate_x'
+  const kpiData = benchmarksData.kpis.find(k => k.name === kpiName)
+  
+  if (!kpiData) {
+    throw new Error(`KPI ${kpiName} not found in benchmarks`)
+  }
+  
+  const actual = metrics.avgEngagementRate
+  const benchmark = kpiData.benchmark.industry_avg || 0
+  const good = kpiData.benchmark.good || 0
+  const excellent = kpiData.benchmark.excellent || 0
+  
+  let status: 'below' | 'average' | 'good' | 'excellent' = 'below'
+  if (actual >= excellent) status = 'excellent'
+  else if (actual >= good) status = 'good'
+  else if (actual >= benchmark) status = 'average'
+  
+  const gap = benchmark - actual
+  const gapPercentage = benchmark > 0 ? (gap / benchmark) * 100 : 0
+  
+  return {
+    kpi: `Engagement Rate (${platform === 'linkedin' ? 'LinkedIn' : 'X'})`,
+    actual,
+    benchmark,
+    good,
+    excellent,
+    status,
+    gap,
+    gapPercentage,
+    description: kpiData.description,
+    platform,
+    industryContext: benchmarksData.industry, // NUEVO
+  }
+}
+
+export function compareAvgEngagementsPerPost(metrics: PlatformMetrics): BenchmarkComparison {
+  const platform: 'linkedin' | 'twitter' = metrics.platform === 'all' ? 'linkedin' : metrics.platform as 'linkedin' | 'twitter'
+  
+  const kpiData = benchmarksData.kpis.find(k => k.name === 'avg_engagement_per_post')
+  
+  if (!kpiData) {
+    throw new Error('avg_engagement_per_post not found in benchmarks')
+  }
+  
+  const actual = metrics.avgEngagementsPerPost
+  
+  // BENCHMARKS REALES (número absoluto de engagements, NO porcentaje)
+  const benchmark = platform === 'linkedin' ? 15 : 5
+  const good = platform === 'linkedin' ? 25 : 10
+  const excellent = platform === 'linkedin' ? 40 : 20
+  
+  let status: 'below' | 'average' | 'good' | 'excellent' = 'below'
+  if (actual >= excellent) status = 'excellent'
+  else if (actual >= good) status = 'good'
+  else if (actual >= benchmark) status = 'average'
+  
+  const gap = benchmark - actual
+  const gapPercentage = benchmark > 0 ? (gap / benchmark) * 100 : 0
+  
+  return {
+    kpi: `Avg Engagements per Post (${platform === 'linkedin' ? 'LinkedIn' : 'X'})`,
+    actual,
+    benchmark,
+    good,
+    excellent,
+    status,
+    gap,
+    gapPercentage,
+    description: kpiData.description,
+    platform,
+    industryContext: benchmarksData.industry,
+  }
+}
+
+export function compareClickThroughRate(metrics: PlatformMetrics): BenchmarkComparison {
+  const platform: 'linkedin' | 'twitter' = metrics.platform === 'all' ? 'linkedin' : metrics.platform as 'linkedin' | 'twitter'
+  
+  const kpiData = benchmarksData.kpis.find(k => k.name === 'click_through_rate')
+  
+  if (!kpiData) {
+    throw new Error('click_through_rate not found in benchmarks')
+  }
+  
+  const actual = metrics.clickThroughRate
+  const benchmark = kpiData.benchmark.industry_avg || 0
+  const good = kpiData.benchmark.good || 0
+  const excellent = kpiData.benchmark.excellent || 0
+  
+  let status: 'below' | 'average' | 'good' | 'excellent' = 'below'
+  if (actual >= excellent) status = 'excellent'
+  else if (actual >= good) status = 'good'
+  else if (actual >= benchmark) status = 'average'
+  
+  const gap = benchmark - actual
+  const gapPercentage = benchmark > 0 ? (gap / benchmark) * 100 : 0
+  
+  return {
+    kpi: `Click-Through Rate (${platform === 'linkedin' ? 'LinkedIn' : 'X'})`,
+    actual,
+    benchmark,
+    good,
+    excellent,
+    status,
+    gap,
+    gapPercentage,
+    description: kpiData.description,
+    platform,
+    industryContext: benchmarksData.industry,
+  }
+}
+
+export function generateAllComparisons(data: ParsedDataset): {
+  linkedin: BenchmarkComparison[]
+  twitter: BenchmarkComparison[]
+} {
+  const linkedinMetrics = extractPlatformMetrics(data, 'linkedin')
+  const twitterMetrics = extractPlatformMetrics(data, 'twitter')
+  
+  return {
+    linkedin: [
+      compareEngagementRate(linkedinMetrics),
+      compareAvgEngagementsPerPost(linkedinMetrics),
+      compareClickThroughRate(linkedinMetrics),
+    ],
+    twitter: [
+      compareEngagementRate(twitterMetrics),
+      compareAvgEngagementsPerPost(twitterMetrics),
+      compareClickThroughRate(twitterMetrics),
+    ],
+  }
+}
+
+export function generateRecommendations(comparisons: BenchmarkComparison[]): string[] {
+  const recommendations: string[] = []
+  
+  comparisons.forEach(comp => {
+    if (comp.status === 'below') {
+      if (comp.kpi.includes('Engagement Rate')) {
+        recommendations.push(`Increase ${comp.kpi} by ${Math.abs(comp.gapPercentage).toFixed(1)}% to reach industry average. Focus on interactive content and audience engagement.`)
+      } else if (comp.kpi.includes('Avg Engagements')) {
+        recommendations.push(`Boost ${comp.kpi} to reach ${comp.benchmark.toFixed(0)} engagements per post. Post more engaging content formats (videos, carousels, polls).`)
+      } else if (comp.kpi.includes('Click-Through')) {
+        recommendations.push(`Improve ${comp.kpi} by optimizing CTAs and link placement. Current: ${(comp.actual * 100).toFixed(2)}%, Target: ${(comp.benchmark * 100).toFixed(2)}%.`)
+      }
+    } else if (comp.status === 'average') {
+      if (comp.kpi.includes('Engagement Rate')) {
+        recommendations.push(`${comp.kpi} is at industry average. Push towards "good" benchmark (${(comp.good * 100).toFixed(2)}%) with A/B testing.`)
+      } else if (comp.kpi.includes('Avg Engagements')) {
+        recommendations.push(`${comp.kpi} is at industry average. Aim for ${comp.good.toFixed(0)} engagements per post with better content quality.`)
+      }
+    }
+  })
+  
+  return recommendations
+}

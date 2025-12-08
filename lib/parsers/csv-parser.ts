@@ -1,3 +1,8 @@
+// ACTUAL Parse para CSV en Condor
+// ruta: lib/parsers/csv-parser.ts
+
+ 
+
 import type { ParserResult } from "./types"
 
 // Detect delimiter - usually ; for LinkedIn, , for others

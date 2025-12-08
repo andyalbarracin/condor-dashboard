@@ -1,0 +1,22 @@
+/**
+ * File: parser-logger.ts
+ * Path: /lib/parsers/parser-logger.ts
+ * Last Modified: 2025-12-07
+ */
+
+export class ParserLogger {
+  private logs: string[] = []
+  
+  log(message: string) {
+    this.logs.push(message)
+    console.log(message)
+  }
+  
+  getLogs(): string[] {
+    return this.logs
+  }
+  
+  clear() {
+    this.logs = []
+  }
+}

@@ -1,8 +1,8 @@
 /**
  * File: page.tsx
  * Path: /app/upload/page.tsx
- * Last Modified: 2025-12-07
- * Description: Upload page - limpio, sin debugging
+ * Last Modified: 2025-12-06
+ * Description: Página de upload con parser universal mejorado
  */
 
 "use client"
@@ -47,8 +47,7 @@ export default function UploadPage() {
       localStorage.setItem("condor_uploaded_files", JSON.stringify(newFiles))
       
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "An error occurred while parsing the file"
-      setError(errorMsg)
+      setError(err instanceof Error ? err.message : "An error occurred while parsing the file")
     } finally {
       setIsLoading(false)
     }
@@ -57,55 +56,48 @@ export default function UploadPage() {
   const handleSaveData = () => {
     if (!parsedData) return
     
-    try {
-      // Cargar datos existentes
-      const existingDataStr = localStorage.getItem("condor_analytics_data")
-      let existingData: ParsedDataset | null = null
-      
-      if (existingDataStr) {
-        try {
-          existingData = JSON.parse(existingDataStr)
-        } catch (error) {
-          existingData = null
-        }
+    // Cargar datos existentes
+    const existingDataStr = localStorage.getItem("condor_analytics_data")
+    let existingData: ParsedDataset | null = null
+    
+    if (existingDataStr) {
+      try {
+        existingData = JSON.parse(existingDataStr)
+      } catch (error) {
+        console.error("Failed to parse existing data:", error)
       }
-      
-      // Merge datos si ya existen
-      if (existingData && existingData.dataPoints) {
-        const mergedDataPoints = [...existingData.dataPoints, ...parsedData.dataPoints]
-        
-        // Eliminar duplicados por fecha + source
-        const uniqueDataPoints = mergedDataPoints.filter((point, index, self) => 
-          index === self.findIndex(p => p.date === point.date && p.source === point.source)
-        )
-        
-        // Ordenar por fecha
-        uniqueDataPoints.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        
-        const mergedData: ParsedDataset = {
-          source: parsedData.source,
-          dataPoints: uniqueDataPoints,
-          rawHeaders: [...existingData.rawHeaders, ...parsedData.rawHeaders],
-          normalizedHeaders: { ...existingData.normalizedHeaders, ...parsedData.normalizedHeaders },
-          dateRange: {
-            start: uniqueDataPoints[0].date,
-            end: uniqueDataPoints[uniqueDataPoints.length - 1].date,
-          },
-        }
-        
-        localStorage.setItem("condor_analytics_data", JSON.stringify(mergedData))
-      } else {
-        // Guardar datos nuevos
-        localStorage.setItem("condor_analytics_data", JSON.stringify(parsedData))
-      }
-      
-      setTimeout(() => {
-        router.push("/")
-      }, 500)
-      
-    } catch (error) {
-      setError('Error saving data to localStorage')
     }
+    
+    // Merge datos si ya existen
+    if (existingData && existingData.dataPoints) {
+      const mergedDataPoints = [...existingData.dataPoints, ...parsedData.dataPoints]
+      
+      // Eliminar duplicados por fecha + source
+      const uniqueDataPoints = mergedDataPoints.filter((point, index, self) => 
+        index === self.findIndex(p => p.date === point.date && p.source === point.source)
+      )
+      
+      // Ordenar por fecha
+      uniqueDataPoints.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      
+      const mergedData: ParsedDataset = {
+        source: parsedData.source, // Puede ser mixto ahora
+        dataPoints: uniqueDataPoints,
+        rawHeaders: [...existingData.rawHeaders, ...parsedData.rawHeaders],
+        normalizedHeaders: { ...existingData.normalizedHeaders, ...parsedData.normalizedHeaders },
+        dateRange: {
+          start: uniqueDataPoints[0].date,
+          end: uniqueDataPoints[uniqueDataPoints.length - 1].date,
+        },
+      }
+      
+      localStorage.setItem("condor_analytics_data", JSON.stringify(mergedData))
+    } else {
+      // Guardar datos nuevos
+      localStorage.setItem("condor_analytics_data", JSON.stringify(parsedData))
+    }
+    
+    router.push("/")
   }
 
   return (
@@ -152,9 +144,7 @@ export default function UploadPage() {
                   <div className="p-4 bg-background border border-border rounded-lg">
                     <p className="text-sm font-medium text-foreground mb-3">Supported formats:</p>
                     <ul className="text-sm text-foreground space-y-1">
-                      <li>• LinkedIn Content Analytics (XLS/XLSX with "Metrics" + "All posts" sheets)</li>
-                      <li>• LinkedIn Followers Analytics (XLS/XLSX)</li>
-                      <li>• LinkedIn Visitors Analytics (XLS/XLSX)</li>
+                      <li>• LinkedIn Content Analytics (XLS/XLSX with "All Post" sheet)</li>
                       <li>• X/Twitter Analytics Export (CSV with Post id, Date, Post text)</li>
                       <li>• Generic CSV files with date and engagement metrics</li>
                     </ul>
@@ -170,9 +160,8 @@ export default function UploadPage() {
                       <div>
                         <p className="font-medium text-green-500">File parsed successfully!</p>
                         <p className="text-sm text-green-400 mt-1">
-                          {parsedData.dataPoints.length} data points from {parsedData.source.toUpperCase()}
-                          {parsedData.subType && ` (${parsedData.subType})`}
-                          {' '}({parsedData.dateRange.start} to {parsedData.dateRange.end})
+                          {parsedData.dataPoints.length} data points from {parsedData.source.toUpperCase()} ({parsedData.dateRange.start} to{" "}
+                          {parsedData.dateRange.end})
                         </p>
                       </div>
                     </div>

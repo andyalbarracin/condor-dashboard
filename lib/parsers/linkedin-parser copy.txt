@@ -1,0 +1,505 @@
+/**
+ * File: linkedin-parser.ts
+ * Path: /lib/parsers/linkedin-parser.ts
+ * Last Modified: 2025-12-07
+ * Description: Parser LinkedIn 100% compatible con navegador
+ */
+
+import * as XLSX from 'xlsx'
+import type { ParserResult, NormalizedDataPoint } from './types'
+
+function detectLinkedInType(sheetNames: string[], rows: any[]): 'content' | 'followers' | 'visitors' | 'unknown' {
+  const sheetNamesLower = sheetNames.map(s => s.toLowerCase())
+  
+  // Primero verificar por nombres de hojas
+  if (sheetNamesLower.some(s => s.includes('metrics') || s.includes('all post'))) {
+    return 'content'
+  }
+  
+  if (sheetNamesLower.some(s => s.includes('follower'))) {
+    return 'followers'
+  }
+  
+  if (sheetNamesLower.some(s => s.includes('visitor'))) {
+    return 'visitors'
+  }
+  
+  // Si no, verificar por columnas
+  if (rows.length > 0) {
+    const firstRow = rows[0]
+    const keys = Object.keys(firstRow).join(' ').toLowerCase()
+    
+    if (keys.includes('impression') && keys.includes('reaction')) {
+      return 'content'
+    }
+    
+    if (keys.includes('follower')) {
+      return 'followers'
+    }
+    
+    if (keys.includes('visitor') || keys.includes('page view')) {
+      return 'visitors'
+    }
+  }
+  
+  return 'unknown'
+}
+
+function parseLinkedInDate(dateStr: any): string {
+  if (!dateStr) throw new Error('Empty date')
+  
+  if (dateStr instanceof Date) {
+    const year = dateStr.getFullYear()
+    const month = String(dateStr.getMonth() + 1).padStart(2, '0')
+    const day = String(dateStr.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  const trimmed = String(dateStr).trim()
+  
+  // ISO
+  if (trimmed.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return trimmed
+  }
+  
+  // MM/DD/YYYY
+  const slash = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (slash) {
+    const [, m, d, y] = slash
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  
+  // Excel number
+  const num = Number(trimmed)
+  if (!isNaN(num) && num > 0) {
+    const date = new Date((num - 25569) * 86400 * 1000)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  throw new Error(`Cannot parse date: ${dateStr}`)
+}
+
+function cleanNumber(value: any): number {
+  if (typeof value === 'number') return value
+  if (!value) return 0
+  const str = String(value).replace(/[,%]/g, '').trim()
+  const num = parseFloat(str)
+  return isNaN(num) ? 0 : num
+}
+
+function findColumn(row: any, names: string[]): any {
+  for (const name of names) {
+    if (row[name] !== undefined && row[name] !== null && row[name] !== '') {
+      return row[name]
+    }
+  }
+  return undefined
+}
+
+/**
+ * Limpia las filas del archivo - elimina filas descriptivas
+ */
+function cleanRows(rawRows: any[]): any[] {
+  if (rawRows.length === 0) return []
+  
+  // Buscar la fila de headers (tiene "Date" como columna)
+  let headerRowIndex = -1
+  
+  for (let i = 0; i < Math.min(5, rawRows.length); i++) {
+    const keys = Object.keys(rawRows[i])
+    const values = Object.values(rawRows[i])
+    
+    // La fila de headers tiene "Date" como VALOR, no como KEY
+    if (values.some(v => String(v).trim().toLowerCase() === 'date')) {
+      headerRowIndex = i
+      break
+    }
+    
+    // O tiene "Date" como key
+    if (keys.some(k => k.toLowerCase() === 'date')) {
+      // Esta ya es la fila correcta, no necesitamos limpiar
+      return rawRows
+    }
+  }
+  
+  // Si encontramos headers en una fila intermedia, necesitamos re-parsear
+  if (headerRowIndex > 0) {
+    console.log(`🧹 Limpiando: headers encontrados en fila ${headerRowIndex + 1}`)
+    // Vamos a saltarnos las primeras filas y usar headerRowIndex como headers
+    return rawRows.slice(headerRowIndex)
+  }
+  
+  return rawRows
+}
+
+function parseContentAnalytics(workbook: XLSX.WorkBook): { dataPoints: NormalizedDataPoint[]; headers: string[] } {
+  console.log('📊 Parseando Content Analytics...')
+  
+  let mainSheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('metrics')) || workbook.SheetNames[0]
+  console.log(`📊 Hoja principal: "${mainSheetName}"`)
+  
+  const mainSheet = workbook.Sheets[mainSheetName]
+  
+  // Obtener TODAS las filas primero
+  let allRows: any[] = XLSX.utils.sheet_to_json(mainSheet, { 
+    defval: '', 
+    raw: false,  // Convertir todo a string para evitar problemas
+    header: 1    // Obtener como array de arrays
+  })
+  
+  console.log(`📊 Total filas raw: ${allRows.length}`)
+  
+  if (allRows.length < 2) {
+    throw new Error('Archivo vacío o con muy pocas filas')
+  }
+  
+  // Encontrar la fila de headers
+  let headerRowIdx = 0
+  for (let i = 0; i < Math.min(3, allRows.length); i++) {
+    const row = allRows[i] as any[]
+    if (row.some(cell => String(cell).toLowerCase().includes('date'))) {
+      headerRowIdx = i
+      console.log(`✅ Headers encontrados en fila ${i + 1}`)
+      break
+    }
+  }
+  
+  // Extraer headers
+  const headers = allRows[headerRowIdx] as string[]
+  console.log(`📊 Headers:`, headers.slice(0, 5))
+  
+  // Extraer datos (todo después de los headers)
+  const dataRows = allRows.slice(headerRowIdx + 1)
+  console.log(`📊 Filas de datos: ${dataRows.length}`)
+  
+  // Convertir a objetos
+  const mainRows = dataRows.map(row => {
+    const obj: any = {}
+    headers.forEach((header, idx) => {
+      obj[String(header)] = (row as any[])[idx]
+    })
+    return obj
+  })
+  
+  console.log(`📊 Primera fila como objeto:`, mainRows[0])
+  
+  // Procesar "All posts"
+  const allPostSheet = workbook.Sheets['All posts'] || workbook.Sheets['All Posts']
+  let postMap = new Map<string, { title: string; link: string }>()
+  
+  if (allPostSheet) {
+    let allPostRaw: any[] = XLSX.utils.sheet_to_json(allPostSheet, { 
+      defval: '', 
+      raw: false,
+      header: 1 
+    })
+    
+    // Encontrar headers en All posts
+    let postHeaderIdx = 0
+    for (let i = 0; i < Math.min(3, allPostRaw.length); i++) {
+      const row = allPostRaw[i] as any[]
+      if (row.some(cell => String(cell).toLowerCase().includes('post title'))) {
+        postHeaderIdx = i
+        break
+      }
+    }
+    
+    const postHeaders = allPostRaw[postHeaderIdx] as string[]
+    const postDataRows = allPostRaw.slice(postHeaderIdx + 1)
+    
+    const postRows = postDataRows.map(row => {
+      const obj: any = {}
+      postHeaders.forEach((header, idx) => {
+        obj[String(header)] = (row as any[])[idx]
+      })
+      return obj
+    })
+    
+    console.log(`📊 All posts: ${postRows.length} filas`)
+    
+    postRows.forEach(row => {
+      try {
+        const date = findColumn(row, ['Created date', 'Date', 'Posted date'])
+        const title = findColumn(row, ['Post title', 'Title']) || ''
+        const link = findColumn(row, ['Post link', 'Link']) || ''
+        
+        if (date) {
+          const normalized = parseLinkedInDate(date)
+          postMap.set(normalized, { title: String(title), link: String(link) })
+        }
+      } catch (e) {
+        // Ignorar
+      }
+    })
+    
+    console.log(`📊 Post map: ${postMap.size} entradas`)
+  }
+  
+  const dataPoints: NormalizedDataPoint[] = []
+  let parsed = 0
+  let skipped = 0
+  
+  for (let i = 0; i < mainRows.length; i++) {
+    const row = mainRows[i]
+    
+    const dateStr = findColumn(row, ['Date', 'date'])
+    
+    if (!dateStr || !String(dateStr).trim()) {
+      skipped++
+      continue
+    }
+    
+    try {
+      const normalizedDate = parseLinkedInDate(dateStr)
+      const postInfo = postMap.get(normalizedDate) || { title: '', link: '' }
+      
+      const impressions = cleanNumber(findColumn(row, ['Impressions (total)', 'Impressions']))
+      const impressions_organic = cleanNumber(findColumn(row, ['Impressions (organic)']))
+      const clicks = cleanNumber(findColumn(row, ['Clicks (total)', 'Clicks']))
+      const reactions = cleanNumber(findColumn(row, ['Reactions (total)', 'Reactions']))
+      const comments = cleanNumber(findColumn(row, ['Comments (total)', 'Comments']))
+      const reposts = cleanNumber(findColumn(row, ['Reposts (total)', 'Reposts']))
+      const engagement_rate = cleanNumber(findColumn(row, ['Engagement rate (total)', 'Engagement rate']))
+      
+      const engagements = reactions + comments + reposts
+      
+      const metrics: Record<string, number | string> = {
+        post_id: normalizedDate,
+        title: postInfo.title,
+        link: postInfo.link,
+        impressions,
+        impressions_organic,
+        clicks,
+        reactions,
+        comments,
+        reposts,
+        engagements,
+        engagement_rate: engagement_rate || (impressions > 0 ? (engagements / impressions) * 100 : 0),
+      }
+      
+      dataPoints.push({
+        date: normalizedDate,
+        source: 'linkedin',
+        metrics,
+      })
+      
+      parsed++
+      
+      if (parsed <= 3) {
+        console.log(`✅ Fila ${i + 1}:`, { date: normalizedDate, impressions, engagements })
+      }
+      
+    } catch (error) {
+      console.warn(`⚠️ Fila ${i + 1}:`, error)
+      skipped++
+    }
+  }
+  
+  console.log(`📊 Resultado: ${parsed} parseadas, ${skipped} saltadas`)
+  
+  return { dataPoints, headers: headers.map(h => String(h)) }
+}
+
+function parseFollowersAnalytics(workbook: XLSX.WorkBook): { dataPoints: NormalizedDataPoint[]; headers: string[] } {
+  console.log('📊 Parseando Followers...')
+  
+  const sheet = workbook.Sheets[workbook.SheetNames[0]]
+  let allRows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, header: 1 })
+  
+  let headerRowIdx = 0
+  for (let i = 0; i < Math.min(3, allRows.length); i++) {
+    if ((allRows[i] as any[]).some(cell => String(cell).toLowerCase().includes('date'))) {
+      headerRowIdx = i
+      break
+    }
+  }
+  
+  const headers = allRows[headerRowIdx] as string[]
+  const dataRows = allRows.slice(headerRowIdx + 1)
+  
+  const rows = dataRows.map(row => {
+    const obj: any = {}
+    headers.forEach((h, idx) => {
+      obj[String(h)] = (row as any[])[idx]
+    })
+    return obj
+  })
+  
+  const dataPoints: NormalizedDataPoint[] = []
+  
+  rows.forEach(row => {
+    const dateStr = findColumn(row, ['Date', 'date'])
+    if (!dateStr) return
+    
+    try {
+      const normalizedDate = parseLinkedInDate(dateStr)
+      
+      const total_followers = cleanNumber(findColumn(row, ['Total followers', 'Followers']))
+      const organic_followers = cleanNumber(findColumn(row, ['Organic followers']))
+      const sponsored_followers = cleanNumber(findColumn(row, ['Sponsored followers']))
+      
+      dataPoints.push({
+        date: normalizedDate,
+        source: 'linkedin',
+        metrics: {
+          total_followers,
+          organic_followers,
+          sponsored_followers,
+          new_followers: organic_followers + sponsored_followers,
+        },
+      })
+    } catch (e) {
+      // Ignorar
+    }
+  })
+  
+  console.log(`✅ ${dataPoints.length} followers parseados`)
+  
+  return { dataPoints, headers: headers.map(h => String(h)) }
+}
+
+function parseVisitorsAnalytics(workbook: XLSX.WorkBook): { dataPoints: NormalizedDataPoint[]; headers: string[] } {
+  console.log('📊 Parseando Visitors...')
+  
+  const sheet = workbook.Sheets[workbook.SheetNames[0]]
+  let allRows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false, header: 1 })
+  
+  let headerRowIdx = 0
+  for (let i = 0; i < Math.min(3, allRows.length); i++) {
+    if ((allRows[i] as any[]).some(cell => String(cell).toLowerCase().includes('date'))) {
+      headerRowIdx = i
+      break
+    }
+  }
+  
+  const headers = allRows[headerRowIdx] as string[]
+  const dataRows = allRows.slice(headerRowIdx + 1)
+  
+  const rows = dataRows.map(row => {
+    const obj: any = {}
+    headers.forEach((h, idx) => {
+      obj[String(h)] = (row as any[])[idx]
+    })
+    return obj
+  })
+  
+  const dataPoints: NormalizedDataPoint[] = []
+  
+  rows.forEach(row => {
+    const dateStr = findColumn(row, ['Date', 'date'])
+    if (!dateStr) return
+    
+    try {
+      const normalizedDate = parseLinkedInDate(dateStr)
+      
+      const page_views = cleanNumber(findColumn(row, ['Page views', 'Views']))
+      const unique_visitors = cleanNumber(findColumn(row, ['Unique visitors']))
+      const custom_button_clicks = cleanNumber(findColumn(row, ['Custom button clicks']))
+      
+      dataPoints.push({
+        date: normalizedDate,
+        source: 'linkedin',
+        metrics: {
+          page_views,
+          unique_visitors,
+          custom_button_clicks,
+        },
+      })
+    } catch (e) {
+      // Ignorar
+    }
+  })
+  
+  console.log(`✅ ${dataPoints.length} visitors parseados`)
+  
+  return { dataPoints, headers: headers.map(h => String(h)) }
+}
+
+export async function parseLinkedInXLS(file: File): Promise<ParserResult> {
+  console.log('\n🚀 Parse LinkedIn:', file.name)
+  
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const data = new Uint8Array(arrayBuffer)
+    
+    const workbook = XLSX.read(data, { type: 'array' })
+    
+    if (workbook.SheetNames.length === 0) {
+      return { success: false, error: 'Sin hojas' }
+    }
+    
+    console.log('📊 Hojas:', workbook.SheetNames)
+    
+    // Detectar tipo leyendo primera hoja
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+    const testRows = XLSX.utils.sheet_to_json(firstSheet, { defval: '', raw: false, header: 1 }).slice(0, 3)
+    
+    const fileType = detectLinkedInType(workbook.SheetNames, testRows as any[])
+    console.log(`🎯 Tipo: ${fileType}`)
+    
+    if (fileType === 'unknown') {
+      return { success: false, error: 'Tipo de archivo LinkedIn no reconocido' }
+    }
+    
+    let result: { dataPoints: NormalizedDataPoint[]; headers: string[] }
+    let subType: 'content' | 'followers' | 'visitors' = 'content'
+    
+    try {
+      switch (fileType) {
+        case 'content':
+          result = parseContentAnalytics(workbook)
+          subType = 'content'
+          break
+        case 'followers':
+          result = parseFollowersAnalytics(workbook)
+          subType = 'followers'
+          break
+        case 'visitors':
+          result = parseVisitorsAnalytics(workbook)
+          subType = 'visitors'
+          break
+        default:
+          throw new Error('Tipo desconocido')
+      }
+    } catch (error) {
+      console.error('❌ Error:', error)
+      return {
+        success: false,
+        error: `Error: ${error instanceof Error ? error.message : 'Desconocido'}`
+      }
+    }
+    
+    if (result.dataPoints.length === 0) {
+      return { success: false, error: `Sin datos válidos en ${fileType}` }
+    }
+    
+    result.dataPoints.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    
+    console.log(`✅ ${result.dataPoints.length} filas parseadas`)
+    console.log(`📅 ${result.dataPoints[0].date} → ${result.dataPoints[result.dataPoints.length - 1].date}`)
+    
+    return {
+      success: true,
+      data: {
+        source: 'linkedin',
+        subType,
+        dataPoints: result.dataPoints,
+        rawHeaders: result.headers,
+        normalizedHeaders: {},
+        dateRange: {
+          start: result.dataPoints[0].date,
+          end: result.dataPoints[result.dataPoints.length - 1].date,
+        },
+      },
+    }
+  } catch (error) {
+    console.error('❌ Error general:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido',
+    }
+  }
+}

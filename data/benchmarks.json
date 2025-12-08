@@ -1,0 +1,203 @@
+{
+  "kpis": [
+    {
+      "name": "engagement_rate_linkedin",
+      "description": "Interacciones totales / impresiones",
+      "benchmark": {
+        "industry_avg": 0.052,
+        "good": 0.06,
+        "excellent": 0.07
+      },
+      "source_industry": "B2B Tech / Telecom"
+    },
+    {
+      "name": "engagement_rate_x",
+      "description": "Interacciones totales / impresiones",
+      "benchmark": {
+        "industry_avg": 0.016,
+        "good": 0.02,
+        "excellent": 0.03
+      },
+      "source_industry": "Tech / Telecom vendors"
+    },
+    {
+      "name": "follower_growth_rate",
+      "description": "Crecimiento mensual de seguidores",
+      "benchmark": {
+        "industry_avg": 0.01,
+        "good": 0.02,
+        "excellent": 0.03
+      }
+    },
+    {
+      "name": "content_output_frequency",
+      "description": "Cantidad de publicaciones por mes",
+      "benchmark": {
+        "industry_avg": 8,
+        "recommended": 12,
+        "high_performance": 16
+      }
+    },
+    {
+      "name": "avg_engagement_per_post",
+      "description": "Interacciones promedio por publicación",
+      "benchmark": {
+        "linkedin_industry_avg": 15,
+        "linkedin_good": 25,
+        "linkedin_excellent": 40,
+        "x_industry_avg": 5,
+        "x_good": 10,
+        "x_excellent": 20
+      }
+    },
+    {
+      "name": "click_through_rate",
+      "description": "Clics hacia el sitio / impresiones",
+      "benchmark": {
+        "industry_avg": 0.02,
+        "good": 0.03,
+        "excellent": 0.05
+      }
+    },
+    {
+      "name": "lead_conversion_rate",
+      "description": "Conversiones atribuidas a redes / clics",
+      "benchmark": {
+        "industry_avg": 0.04,
+        "good": 0.06,
+        "excellent": 0.10
+      }
+    },
+    {
+      "name": "share_rate",
+      "description": "Porcentaje de publicaciones compartidas",
+      "benchmark": {
+        "industry_avg": 0.005,
+        "good": 0.01,
+        "excellent": 0.015
+      }
+    },
+    {
+      "name": "comment_rate",
+      "description": "Comentarios / impresiones",
+      "benchmark": {
+        "industry_avg": 0.003,
+        "good": 0.006,
+        "excellent": 0.010
+      }
+    },
+    {
+      "name": "video_completion_rate",
+      "description": "Porcentaje de finalización en contenido en video",
+      "benchmark": {
+        "industry_avg": 0.25,
+        "good": 0.35,
+        "excellent": 0.50
+      }
+    },
+    {
+      "name": "brand_mentions",
+      "description": "Cantidad mensual de menciones de marca",
+      "benchmark": {
+        "industry_avg": 4,
+        "good": 8,
+        "excellent": 15
+      }
+    },
+    {
+      "name": "web_traffic_from_social",
+      "description": "Visitas al sitio provenientes de redes sociales",
+      "benchmark": {
+        "industry_avg": 0.10,
+        "good": 0.15,
+        "excellent": 0.20
+      }
+    }
+  ],
+
+  "micro_benchmarks": {
+    "linkedin": {
+      "multi_image_posts_engagement": 0.066,
+      "single_image_posts_engagement": 0.049,
+      "text_only_posts_engagement": 0.032,
+      "document_posts_engagement": 0.045
+    },
+    "twitter_x": {
+      "avg_post_engagement": 0.016,
+      "high_performance_thread_engagement": 0.03,
+      "link_post_penalty_factor": -0.25
+    }
+  },
+
+  "industry_comparison": {
+    "sector": "Telecom / Network Infrastructure / Remote Site Automation",
+    "peer_group": [
+      "Proveedores de infraestructura de red",
+      "Empresas de automatización industrial",
+      "Compañías B2B de edge computing",
+      "Vendors de telecom (Open RAN, 5G, IoT)"
+    ],
+    "observations": [
+      {
+        "company_type": "Telecom equipment vendors",
+        "patterns": {
+          "engagement_rate_avg": 0.03,
+          "top_content_formats": [
+            "casos de éxito",
+            "videos técnicos cortos",
+            "demos de producto",
+            "releases de features",
+            "clientes anunciados"
+          ],
+          "growth_rate": "0.5%–2% mensual",
+          "notes": "Contenido muy técnico suele tener engagement bajo pero altamente cualificado."
+        }
+      },
+      {
+        "company_type": "B2B Automation / Edge Computing",
+        "patterns": {
+          "engagement_rate_avg": 0.025,
+          "share_rate_avg": 0.01,
+          "lead_conversion_rate_avg": 0.06,
+          "notes": "El rendimiento mejora si se comunican ROI, reducción de costos, eficiencia energética, automatización."
+        }
+      },
+      {
+        "company_type": "Telecom Operators (Brand Accounts)",
+        "patterns": {
+          "engagement_rate_avg": 0.015,
+          "best_post_types": [
+            "historias de campo",
+            "outage recoveries",
+            "nuevos despliegues",
+            "contenido de impacto social"
+          ],
+          "notes": "Engagement más bajo por audiencia masiva; publicaciones técnicas tienen poca interacción."
+        }
+      }
+    ]
+  },
+
+  "recommendations_based_on_benchmarks": {
+    "linkedin_targets": {
+      "monthly_engagement_rate_target": 0.055,
+      "post_frequency_target": 12,
+      "conversion_target": 0.06
+    },
+    "x_targets": {
+      "engagement_rate_target": 0.02,
+      "threads_per_month": 4,
+      "link_post_ratio": 0.25
+    },
+    "cross_platform_targets": {
+      "traffic_from_social": 0.15,
+      "lead_conversion_rate": 0.06,
+      "content_mix": {
+        "educational": 0.40,
+        "case_study": 0.25,
+        "product": 0.20,
+        "culture_employer_branding": 0.15
+      }
+    }
+  }
+}

@@ -1,21 +1,24 @@
 /**
  * File: types.ts
  * Path: /lib/parsers/types.ts
- * Last Modified: 2025-12-07
+ * Last Modified: 2025-12-06
+ * Description: Type definitions para analytics data con todos los subtipos de LinkedIn
  */
 
+// Data types for normalized analytics
+
 export interface NormalizedDataPoint {
-  date: string
+  date: string // ISO 8601 format: YYYY-MM-DD
   source: "linkedin" | "twitter" | "instagram" | "tiktok" | "google-analytics"
   metrics: Record<string, number | string>
 }
 
 export interface ParsedDataset {
   source: "linkedin" | "twitter" | "instagram" | "tiktok" | "google-analytics"
-  subType?: "content" | "followers" | "visitors" | "account_overview"
+  subType?: "content" | "followers" | "visitors" | "account_overview" // LinkedIn tiene múltiples tipos de analytics
   dataPoints: NormalizedDataPoint[]
   rawHeaders: string[]
-  normalizedHeaders: Record<string, string>
+  normalizedHeaders: Record<string, string> // Maps raw header to normalized key
   dateRange: {
     start: string
     end: string
@@ -27,5 +30,4 @@ export interface ParserResult {
   data?: ParsedDataset
   error?: string
   warnings?: string[]
-  //logs?: string[]  // ← NUEVO: para capturar logs internos
 }

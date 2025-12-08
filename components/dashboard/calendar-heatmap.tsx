@@ -1,3 +1,10 @@
+/**
+ * File: calendar-heatmap.tsx
+ * Path: /components/dashboard/calendar-heatmap.tsx
+ * Last Modified: 2025-12-06
+ * Description: Calendar heatmap que muestra datos de todas las plataformas
+ */
+
 "use client"
 
 import { useState } from "react"
@@ -8,6 +15,12 @@ interface CalendarHeatmapProps {
   platform: string
   dateRange: string
   onDateClick?: (dateStr: string, metrics: Record<string, number>) => void
+}
+
+function normalizePlatform(platform: string): string {
+  const normalized = platform.toLowerCase()
+  if (normalized === 'x') return 'twitter'
+  return normalized
 }
 
 function getMonthGrid(year: number, month: number) {
@@ -40,18 +53,8 @@ function formatDate(date: Date): string {
 
 function formatMonthYear(year: number, month: number): string {
   const months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
   ]
   return `${months[month]} ${year}`
 }
@@ -61,12 +64,27 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
   const [monthIdx, setMonthIdx] = useState(0)
   const [hoveredDate, setHoveredDate] = useState<string | null>(null)
 
-  const daysOfWeek = ["M", "T", "W", "T", "F", "S", "S"]
+  const daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
 
-  const allDates = data.dataPoints.map((r) => new Date(r.date)).filter((date) => !isNaN(date.getTime()))
+  // Filtrar por plataforma si es necesario
+  let filteredData = data.dataPoints
+  if (platform !== "All") {
+    const normalizedFilter = normalizePlatform(platform)
+    filteredData = filteredData.filter(p => p.source.toLowerCase() === normalizedFilter)
+  }
+
+  const allDates = filteredData.map((r) => new Date(r.date)).filter((date) => !isNaN(date.getTime()))
 
   if (!allDates.length) {
-    return <div className="text-foreground dark:text-foreground text-center py-8">No data to display in calendar</div>
+    return (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h3 className="text-lg font-bold text-foreground mb-4">Calendar Heatmap</h3>
+        <div className="text-foreground text-center py-8">
+          No data to display
+          {platform !== "All" && ` for ${platform}`}
+        </div>
+      </div>
+    )
   }
 
   const minDate = allDates.reduce((a, b) => (a < b ? a : b))
@@ -83,18 +101,27 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
 
   const currentMonthData = months[monthIdx] || months[0]
   if (!currentMonthData) {
-    return <div className="text-foreground dark:text-foreground text-center py-8">No calendar data available</div>
+    return (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h3 className="text-lg font-bold text-foreground mb-4">Calendar Heatmap</h3>
+        <div className="text-foreground text-center py-8">No calendar data available</div>
+      </div>
+    )
   }
 
   const days = getMonthGrid(currentMonthData.year, currentMonthData.month)
 
+  // Agregar datos por fecha
   const values: Record<string, Record<string, number>> = {}
-  data.dataPoints.forEach((r) => {
+  filteredData.forEach((r) => {
     if (!r.date) return
     const dateStr = r.date
     if (!values[dateStr]) values[dateStr] = {}
     Object.keys(r.metrics).forEach((key) => {
-      values[dateStr][key] = (values[dateStr][key] || 0) + (Number(r.metrics[key]) || 0)
+      const value = Number(r.metrics[key])
+      if (!isNaN(value)) {
+        values[dateStr][key] = (values[dateStr][key] || 0) + value
+      }
     })
   })
 
@@ -102,7 +129,7 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
     ...Object.values(values)
       .map((v) => v[metric] || 0)
       .filter((v) => v > 0),
-    1,
+    1
   )
 
   const handleDateClick = (dateStr: string, dayMetrics: Record<string, number>) => {
@@ -111,20 +138,40 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
     }
   }
 
+  // Detectar métricas disponibles
+  const availableMetrics = new Set<string>()
+  Object.values(values).forEach(dayMetrics => {
+    Object.keys(dayMetrics).forEach(key => {
+      if (typeof dayMetrics[key] === 'number' && dayMetrics[key] > 0) {
+        availableMetrics.add(key)
+      }
+    })
+  })
+
+  const metricOptions = [
+    { value: 'engagements', label: 'Engagements' },
+    { value: 'impressions', label: 'Impressions' },
+    { value: 'clicks', label: 'Clicks' },
+    { value: 'reactions', label: 'Reactions' },
+    { value: 'comments', label: 'Comments' },
+    { value: 'new_followers', label: 'New Followers' },
+    { value: 'page_views', label: 'Page Views' },
+  ].filter(opt => availableMetrics.has(opt.value))
+
   return (
     <div className="bg-card border border-border rounded-xl p-6">
-      <h3 className="text-lg font-bold text-foreground dark:text-foreground mb-4">Calendar Heatmap</h3>
+      <h3 className="text-lg font-bold text-foreground mb-4">Calendar Heatmap</h3>
 
-      <div className="mb-4 flex gap-4 items-center">
+      <div className="mb-4 flex gap-4 items-center flex-wrap">
         <label className="text-sm font-medium text-neutral-600 dark:text-neutral-300">Metric:</label>
         <select
           value={metric}
           onChange={(e) => setMetric(e.target.value)}
-          className="px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground dark:text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          className="px-3 py-2 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
         >
-          <option value="engagements">Engagements</option>
-          <option value="impressions">Impressions</option>
-          <option value="clicks">Clicks</option>
+          {metricOptions.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
         </select>
 
         <button
@@ -134,7 +181,7 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
         >
           &lt;
         </button>
-        <div className="text-sm font-bold text-foreground dark:text-foreground">
+        <div className="text-sm font-bold text-foreground">
           {formatMonthYear(currentMonthData.year, currentMonthData.month)}
         </div>
         <button
@@ -144,6 +191,12 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
         >
           &gt;
         </button>
+        
+        {platform !== "All" && (
+          <span className="text-xs text-neutral-500 ml-auto">
+            Showing {platform} only
+          </span>
+        )}
       </div>
 
       <div className="overflow-x-auto relative">
@@ -163,27 +216,33 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
             return (
               <div
                 key={idx}
-                className={`rounded-lg h-12 flex items-center justify-center text-sm font-medium relative group ${
+                className={`rounded-lg h-12 flex items-center justify-center text-xs font-medium relative group ${
                   hasData ? "cursor-pointer" : ""
                 } ${!isCurrentMonth ? "opacity-40" : ""}`}
                 style={{
-                  background: hasData ? `rgba(42, 95, 74, ${Math.min(value / maxValue, 1)})` : "rgba(0,0,0,0.1)",
-                  color: "#fff",
+                  background: hasData 
+                    ? `rgba(42, 95, 74, ${Math.min(value / maxValue, 1)})` 
+                    : "rgba(100,100,100,0.1)",
+                  color: hasData ? "#fff" : "#888",
                 }}
                 onMouseEnter={() => hasData && setHoveredDate(dayStr)}
                 onMouseLeave={() => setHoveredDate(null)}
                 onClick={() => handleDateClick(dayStr, dayMetrics)}
               >
                 {dateObj.getDate()}
-                {hasData && <span className="ml-1">📊</span>}
 
                 {hoveredDate === dayStr && hasData && (
-                  <div className="absolute -top-20 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-slate-800 text-white text-xs rounded-lg p-2 whitespace-nowrap z-50 shadow-lg pointer-events-none border border-slate-700">
-                    <div className="font-semibold">{dayStr}</div>
-                    <div>Engagements: {(dayMetrics.engagements || 0).toLocaleString()}</div>
-                    <div>Impressions: {(dayMetrics.impressions || 0).toLocaleString()}</div>
-                    <div>Clicks: {(dayMetrics.clicks || 0).toLocaleString()}</div>
-                    <div className="text-xs opacity-70 mt-1">Click to view details</div>
+                  <div className="absolute -top-24 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-slate-800 text-white text-xs rounded-lg p-3 whitespace-nowrap z-50 shadow-lg pointer-events-none border border-slate-700">
+                    <div className="font-semibold mb-1">{dayStr}</div>
+                    {Object.entries(dayMetrics)
+                      .filter(([_, val]) => typeof val === 'number' && val > 0)
+                      .slice(0, 5)
+                      .map(([key, val]) => (
+                        <div key={key}>
+                          {key.replace(/_/g, ' ')}: {Number(val).toLocaleString()}
+                        </div>
+                      ))
+                    }
                   </div>
                 )}
               </div>

@@ -1,11 +1,16 @@
-'use client'
+/**
+ * File: theme-provider.tsx
+ * Path: /components/theme-provider.tsx
+ * Last Modified: 2025-12-06
+ * Description: Theme provider wrapper para next-themes con soporte dark/light mode
+ */
 
-import * as React from 'react'
-import {
-  ThemeProvider as NextThemesProvider,
-  type ThemeProviderProps,
-} from 'next-themes'
+"use client"
 
-export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+import * as React from "react"
+import { ThemeProvider as NextThemesProvider } from "next-themes"
+import type { ThemeProviderProps as NextThemesProviderProps } from "next-themes/dist/types"
+
+export function ThemeProvider({ children, ...props }: NextThemesProviderProps) {
   return <NextThemesProvider {...props}>{children}</NextThemesProvider>
 }

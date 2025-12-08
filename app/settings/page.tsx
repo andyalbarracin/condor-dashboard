@@ -1,14 +1,30 @@
+/**
+ * File: page.tsx
+ * Path: /app/settings/page.tsx
+ * Last Modified: 2025-12-06
+ * Description: Página de configuración - ajustes de cuenta e integraciones
+ */
+
 "use client"
 
+import { useState } from "react"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 
 export default function SettingsPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar />
-      <main className="flex-1 flex flex-col ml-20 lg:ml-64 transition-all duration-300">
+      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <main
+        className="flex-1 flex flex-col transition-all duration-300"
+        style={{
+          marginLeft: sidebarOpen ? "16rem" : "5rem",
+          width: sidebarOpen ? "calc(100vw - 16rem)" : "calc(100vw - 5rem)",
+        }}
+      >
         <Header accountName="Asentria" />
         <div className="flex-1 overflow-auto">
           <div className="px-8 py-8">
