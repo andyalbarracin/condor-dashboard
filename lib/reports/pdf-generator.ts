@@ -45,7 +45,7 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
   doc.setFontSize(28)
   doc.setFont('helvetica', 'bold')
   const pageWidth = doc.internal.pageSize.width
-  doc.text('CONDOR Analytics Report', pageWidth / 2, yPos, { align: 'center' })
+  doc.text('Analytics Report', pageWidth / 2, yPos, { align: 'center' })
   
   yPos += 15
   doc.setFontSize(14)
@@ -265,7 +265,7 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
     doc.setFontSize(8)
     doc.setTextColor(150, 150, 150)
     doc.text(
-      `Page ${i} | CONDOR Analytics Hub`, 
+      `Page ${i} | Analytics Hub`, 
       pageWidth / 2, 
       doc.internal.pageSize.height - 10, 
       { align: 'center' }

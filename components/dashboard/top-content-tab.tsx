@@ -1,13 +1,20 @@
+/**
+ * File: top-content-tab.tsx
+ * Path: /components/dashboard/top-content-tab.tsx
+ * Last Modified: 2025-12-09
+ * Description: Top Content con filtro correcto y row picker funcionando
+ */
+
 "use client"
 
-import { useState } from "react"
-import { ChevronUp, ChevronDown, ExternalLink } from "lucide-react"
+import { useState, useMemo } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ChevronUp, ChevronDown } from "lucide-react"
 import type { ParsedDataset } from "@/lib/parsers/types"
 
 interface TopContentTabProps {
   data: ParsedDataset
   platform: string
-  onRowClick?: (post: any) => void
 }
 
 function normalizePlatform(platform: string): string {
@@ -16,132 +23,254 @@ function normalizePlatform(platform: string): string {
   return normalized
 }
 
-export function TopContentTab({ data, platform, onRowClick }: TopContentTabProps) {
-  const [sortBy, setSortBy] = useState("engagements")
+export function TopContentTab({ data, platform }: TopContentTabProps) {
+  const [sortBy, setSortBy] = useState<string>("engagements")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
-  const [page, setPage] = useState(1)
-  const rowsPerPage = 10
-
-  let posts = data.dataPoints.filter((r) => r.metrics.title && String(r.metrics.title).toString().trim().length > 2)
-
-  if (platform !== "All") {
-    const normalizedFilter = normalizePlatform(platform)
-    posts = posts.filter(p => p.source.toLowerCase() === normalizedFilter)
-  }
-
-  const sorted = [...posts].sort((a, b) => {
-    let vA = Number(a.metrics[sortBy]) || 0
-    let vB = Number(b.metrics[sortBy]) || 0
-
-    if (sortBy === "date") {
-      vA = new Date(a.date).getTime()
-      vB = new Date(b.date).getTime()
+  const [rowsPerPage, setRowsPerPage] = useState<number>(20)
+  
+  const topContent = useMemo(() => {
+    let filteredPoints = data.dataPoints
+    
+    // Filtrar por plataforma
+    if (platform !== "All") {
+      const normalizedFilter = normalizePlatform(platform)
+      filteredPoints = filteredPoints.filter(p => 
+        p.source.toLowerCase() === normalizedFilter
+      )
     }
-
-    return sortDir === "desc" ? vB - vA : vA - vB
-  })
-
-  const totalPages = Math.ceil(sorted.length / rowsPerPage)
-  const paged = sorted.slice((page - 1) * rowsPerPage, page * rowsPerPage)
-
-  const headers = [
-    { key: "title", label: "Title" },
-    { key: "source", label: "Platform" },
-    { key: "date", label: "Date" },
-    { key: "engagements", label: "Engagements" },
-    { key: "impressions", label: "Impressions" },
-    { key: "clicks", label: "Clicks" },
-  ]
-
+    
+    // FILTRAR posts válidos (con título/texto Y con impresiones)
+    const validPosts = filteredPoints.filter(p => {
+  // Solo verificar que tenga ALGO de contenido
+  const hasContent = p.metrics.title || p.metrics.content || p.metrics.post_text
+  return hasContent && hasContent.toString().trim().length > 0
+})
+    
+    // Mapear a formato de post
+    let posts = validPosts.map((p, index) => {
+      let engRate = Number(p.metrics.engagement_rate || 0)
+      
+      if (engRate < 1 && engRate > 0) {
+        engRate = engRate * 100
+      }
+      
+      return {
+        id: p.id || `${p.date}-${p.source}-${index}`,
+        title: String(p.metrics.title || p.metrics.post_text || ''),
+        source: p.source,
+        date: p.date,
+        link: String(p.metrics.link || ''),
+        impressions: Number(p.metrics.impressions || 0),
+        engagements: Number(p.metrics.engagements || 0),
+        clicks: Number(p.metrics.clicks || 0),
+        reactions: Number(p.metrics.reactions || p.metrics.likes || 0),
+        comments: Number(p.metrics.comments || 0),
+        shares: Number(p.metrics.reposts || p.metrics.shares || 0),
+        engagement_rate: engRate,
+        followers_gained: Number(p.metrics.new_followers || 0),
+      }
+    })
+    
+    // Ordenar
+    posts.sort((a, b) => {
+      let vA = a[sortBy as keyof typeof a]
+      let vB = b[sortBy as keyof typeof b]
+      
+      if (sortBy === "date") {
+        vA = new Date(a.date).getTime()
+        vB = new Date(b.date).getTime()
+      }
+      
+      if (typeof vA === 'number' && typeof vB === 'number') {
+        return sortDir === "desc" ? vB - vA : vA - vB
+      }
+      
+      return 0
+    })
+    
+    // Aplicar límite DESPUÉS de ordenar
+    return rowsPerPage === 999 ? posts : posts.slice(0, rowsPerPage)
+  }, [data, platform, sortBy, sortDir, rowsPerPage])
+  
+  const handleSort = (key: string) => {
+    if (sortBy === key) {
+      setSortDir(sortDir === "desc" ? "asc" : "desc")
+    } else {
+      setSortBy(key)
+      setSortDir("desc")
+    }
+  }
+  
   return (
-    <div className="bg-card border border-border rounded-xl p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold">Top Content</h3>
-        <p className="text-sm text-neutral-500">
-          Showing {posts.length} post{posts.length !== 1 ? 's' : ''} 
-          {platform !== "All" && ` from ${platform}`}
-        </p>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border">
-              {headers.map((h) => (
-                <th
-                  key={h.key}
-                  onClick={() => {
-                    if (h.key !== "source") {
-                      if (sortBy === h.key) {
-                        setSortDir(sortDir === "desc" ? "asc" : "desc")
-                      } else {
-                        setSortBy(h.key)
-                        setSortDir("desc")
-                      }
-                    }
-                  }}
-                  className={`text-left py-3 px-4 font-semibold text-neutral-400 ${h.key !== "source" ? "cursor-pointer hover:text-foreground" : ""} transition-colors`}
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Top Content</CardTitle>
+            <CardDescription>Best performing posts</CardDescription>
+          </div>
+          <select
+            value={rowsPerPage}
+            onChange={(e) => setRowsPerPage(Number(e.target.value))}
+            className="px-3 py-1.5 border border-border rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value={20}>Show 20</option>
+            <option value={30}>Show 30</option>
+            <option value={50}>Show 50</option>
+            <option value={999}>Show All</option>
+          </select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-3 px-4 font-semibold text-neutral-400">#</th>
+                <th 
+                  onClick={() => handleSort("title")}
+                  className="text-left py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    {h.label}
-                    {sortBy === h.key && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                    Title
+                    {sortBy === "title" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
                   </div>
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paged.length === 0 ? (
-              <tr>
-                <td colSpan={headers.length} className="text-center py-8 text-neutral-400">
-                  No posts to display{platform !== "All" && ` for ${platform}`}
-                </td>
+                <th className="text-left py-3 px-4 font-semibold text-neutral-400">Platform</th>
+                <th 
+                  onClick={() => handleSort("date")}
+                  className="text-left py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    Date
+                    {sortBy === "date" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("impressions")}
+                  className="text-right py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Impressions
+                    {sortBy === "impressions" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("engagements")}
+                  className="text-right py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Engagements
+                    {sortBy === "engagements" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("clicks")}
+                  className="text-right py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Clicks
+                    {sortBy === "clicks" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("reactions")}
+                  className="text-right py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Reactions
+                    {sortBy === "reactions" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("comments")}
+                  className="text-right py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Comments
+                    {sortBy === "comments" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("shares")}
+                  className="text-right py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Shares
+                    {sortBy === "shares" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("engagement_rate")}
+                  className="text-right py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Eng. Rate
+                    {sortBy === "engagement_rate" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("followers_gained")}
+                  className="text-right py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
+                >
+                  <div className="flex items-center justify-end gap-2">
+                    Followers
+                    {sortBy === "followers_gained" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
+                  </div>
+                </th>
               </tr>
-            ) : (
-              paged.map((row, i) => {
-                const postLink = String(row.metrics.link || '')
-                const postTitle = String(row.metrics.title || "(No title)")
-                
-                return (
-                  <tr key={i} onClick={() => onRowClick?.(row)} className="border-b border-border hover:bg-card-hover cursor-pointer transition-colors">
-                    <td className="py-3 px-4 text-foreground truncate max-w-xs">
-                      {postLink ? (
-                        <a href={postLink} target="_blank" rel="noopener noreferrer" onClick={(e: React.MouseEvent) => e.stopPropagation()} className="flex items-center gap-1 hover:underline text-primary">
-                          {postTitle}
-                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                        </a>
-                      ) : (
-                        postTitle
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${row.source === 'linkedin' ? 'bg-blue-500/20 text-blue-400' : row.source === 'twitter' ? 'bg-sky-500/20 text-sky-400' : 'bg-neutral-500/20 text-neutral-400'}`}>
-                        {row.source === 'twitter' ? 'X' : row.source.charAt(0).toUpperCase() + row.source.slice(1)}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-neutral-400">{row.date}</td>
-                    <td className="py-3 px-4 text-neutral-400">{Number(row.metrics.engagements).toLocaleString() || "-"}</td>
-                    <td className="py-3 px-4 text-neutral-400">{Number(row.metrics.impressions).toLocaleString() || "-"}</td>
-                    <td className="py-3 px-4 text-neutral-400">{Number(row.metrics.clicks).toLocaleString() || "-"}</td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex gap-2 justify-end mt-4">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 rounded text-sm font-medium bg-card border border-border text-foreground hover:bg-accent disabled:opacity-50">
-            Previous
-          </button>
-          <span className="px-3 py-1 text-sm text-neutral-500">Page {page} of {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1 rounded text-sm font-medium bg-card border border-border text-foreground hover:bg-accent disabled:opacity-50">
-            Next
-          </button>
+            </thead>
+            <tbody>
+              {topContent.map((post, idx) => (
+                <tr 
+                  key={post.id}
+                  className={`border-b border-border hover:bg-card-hover transition-colors ${idx % 2 === 0 ? 'bg-neutral-50/50 dark:bg-neutral-900/20' : ''}`}
+                >
+                  <td className="py-3 px-4 text-neutral-400">{idx + 1}</td>
+                  <td className="py-3 px-4 text-foreground max-w-xs truncate">
+                    {post.link ? (
+                      <a 
+                        href={post.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="hover:underline text-primary"
+                      >
+                        {post.title}
+                      </a>
+                    ) : (
+                      post.title
+                    )}
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      post.source === 'linkedin' ? 'bg-blue-500/20 text-blue-400' :
+                      post.source === 'twitter' ? 'bg-sky-500/20 text-sky-400' :
+                      'bg-neutral-500/20 text-neutral-400'
+                    }`}>
+                      {post.source === 'twitter' ? 'X' : post.source.charAt(0).toUpperCase() + post.source.slice(1)}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-neutral-400">{post.date}</td>
+                  <td className="py-3 px-4 text-right text-neutral-400">{post.impressions.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right text-neutral-400 font-semibold">{post.engagements.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right text-neutral-400">{post.clicks.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right text-neutral-400">{post.reactions.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right text-neutral-400">{post.comments.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right text-neutral-400">{post.shares.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right text-neutral-400">{post.engagement_rate.toFixed(2)}%</td>
+                  <td className="py-3 px-4 text-right text-neutral-400">
+                    {post.followers_gained > 0 ? (
+                      <span className="text-green-500 font-semibold">+{post.followers_gained}</span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }

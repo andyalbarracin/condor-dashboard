@@ -1,8 +1,8 @@
 /**
  * File: page.tsx
  * Path: /app/upload/page.tsx
- * Last Modified: 2025-12-07
- * Description: Upload page - limpio, sin debugging
+ * Last Modified: 2025-12-09
+ * Description: Upload page con soporte para Google Analytics
  */
 
 "use client"
@@ -41,7 +41,6 @@ export default function UploadPage() {
 
       setParsedData(result.data)
       
-      // Guardar lista de archivos subidos
       const existingFiles = JSON.parse(localStorage.getItem("condor_uploaded_files") || "[]")
       const newFiles = [...existingFiles, file.name]
       localStorage.setItem("condor_uploaded_files", JSON.stringify(newFiles))
@@ -58,7 +57,6 @@ export default function UploadPage() {
     if (!parsedData) return
     
     try {
-      // Cargar datos existentes
       const existingDataStr = localStorage.getItem("condor_analytics_data")
       let existingData: ParsedDataset | null = null
       
@@ -70,16 +68,13 @@ export default function UploadPage() {
         }
       }
       
-      // Merge datos si ya existen
       if (existingData && existingData.dataPoints) {
         const mergedDataPoints = [...existingData.dataPoints, ...parsedData.dataPoints]
         
-        // Eliminar duplicados por fecha + source
         const uniqueDataPoints = mergedDataPoints.filter((point, index, self) => 
           index === self.findIndex(p => p.date === point.date && p.source === point.source)
         )
         
-        // Ordenar por fecha
         uniqueDataPoints.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         
         const mergedData: ParsedDataset = {
@@ -91,11 +86,14 @@ export default function UploadPage() {
             start: uniqueDataPoints[0].date,
             end: uniqueDataPoints[uniqueDataPoints.length - 1].date,
           },
+          metadata: {
+            ...existingData.metadata,
+            ...parsedData.metadata,
+          }
         }
         
         localStorage.setItem("condor_analytics_data", JSON.stringify(mergedData))
       } else {
-        // Guardar datos nuevos
         localStorage.setItem("condor_analytics_data", JSON.stringify(parsedData))
       }
       
@@ -123,7 +121,7 @@ export default function UploadPage() {
           <div className="px-8 py-8 max-w-4xl">
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-foreground">Upload Analytics</h1>
-              <p className="text-neutral-500 mt-1">Import your data from LinkedIn, X, or other platforms</p>
+              <p className="text-neutral-500 mt-1">Import your data from LinkedIn, X, Google Analytics, or other platforms</p>
             </div>
 
             {error && (
@@ -144,7 +142,7 @@ export default function UploadPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Upload File</CardTitle>
-                  <CardDescription>CSV or XLSX format from LinkedIn, X, Instagram, or TikTok</CardDescription>
+                  <CardDescription>CSV or XLSX format from LinkedIn, X, Google Analytics, Instagram, or TikTok</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <MiniDropZone onFileSelect={handleFileSelect} isLoading={isLoading} />
@@ -156,6 +154,7 @@ export default function UploadPage() {
                       <li>• LinkedIn Followers Analytics (XLS/XLSX)</li>
                       <li>• LinkedIn Visitors Analytics (XLS/XLSX)</li>
                       <li>• X/Twitter Analytics Export (CSV with Post id, Date, Post text)</li>
+                      <li>• Google Analytics 4 Traffic Acquisition (CSV export)</li>
                       <li>• Generic CSV files with date and engagement metrics</li>
                     </ul>
                   </div>

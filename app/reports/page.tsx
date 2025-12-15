@@ -2,7 +2,7 @@
  * File: page.tsx
  * Path: /app/reports/page.tsx
  * Last Modified: 2025-12-08
- * Description: Reports CORREGIDO - Filtra filas vacías y títulos con plataforma
+ * Description: Reports CORREGIDO - IDs únicos, grid responsive
  */
 
 "use client"
@@ -20,14 +20,12 @@ import {
   extractPlatformMetrics 
 } from "@/lib/reports/benchmark-calculator"
 import type { ParsedDataset } from "@/lib/parsers/types"
-import { FileText, TrendingUp, Target, Award, ChevronUp, ChevronDown } from "lucide-react"
+import { FileText, TrendingUp, Target, Award, ChevronUp, ChevronDown, HelpCircle } from "lucide-react"
 import { 
   LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
-} from "recharts"
+} from 'recharts'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-
-import { HelpCircle } from "lucide-react"
 
 const COLORS = {
   linkedin: '#0a66c2',
@@ -46,6 +44,7 @@ export default function ReportsPage() {
   const [dateRange, setDateRange] = useState<string>("3 months")
   const [sortBy, setSortBy] = useState<string>("engagements")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  const [rowsPerPage, setRowsPerPage] = useState<number>(20)
   
   useEffect(() => {
     const stored = localStorage.getItem("condor_analytics_data")
@@ -158,86 +157,85 @@ export default function ReportsPage() {
     )
   }, [filteredData])
   
-  // TABLA CON FILTRO DE FILAS VACÍAS Y TÍTULOS CON PLATAFORMA
-  // Línea ~180
-const benchmarkTableData = useMemo(() => {
-  if (!comparisons) return []
-  
-  let allComps = [...comparisons.linkedin, ...comparisons.twitter]
-  
-  if (platform === "LinkedIn") {
-    allComps = allComps.filter(c => c.platform === 'linkedin')
-  } else if (platform === "X") {
-    allComps = allComps.filter(c => c.platform === 'twitter')
-  }
-  
-  return allComps
-    .filter(comp => comp.actual > 0)
-    .map(comp => {
-      const isPercentage = !comp.kpi.includes('Avg Engagements per Post')
-      
-      return {
-        kpi: comp.kpi,
-        actual: isPercentage ? (comp.actual * 100).toFixed(2) : comp.actual.toFixed(1),
-        benchmark: isPercentage ? (comp.benchmark * 100).toFixed(2) : comp.benchmark.toFixed(1),
-        good: isPercentage ? (comp.good * 100).toFixed(2) : comp.good.toFixed(1),
-        excellent: isPercentage ? (comp.excellent * 100).toFixed(2) : comp.excellent.toFixed(1),
-        status: comp.status,
-        unit: isPercentage ? '%' : '',
-        description: comp.description, // NUEVO
-        industryContext: comp.industryContext, // NUEVO
-      }
-    })
-}, [comparisons, platform])
+  const benchmarkTableData = useMemo(() => {
+    if (!comparisons) return []
+    
+    let allComps = [...comparisons.linkedin, ...comparisons.twitter]
+    
+    if (platform === "LinkedIn") {
+      allComps = allComps.filter(c => c.platform === 'linkedin')
+    } else if (platform === "X") {
+      allComps = allComps.filter(c => c.platform === 'twitter')
+    }
+    
+    return allComps
+      .filter(comp => comp.actual > 0)
+      .map(comp => {
+        const isPercentage = !comp.kpi.includes('Avg Engagements per Post')
+        
+        return {
+          kpi: comp.kpi,
+          actual: isPercentage ? (comp.actual * 100).toFixed(2) : comp.actual.toFixed(1),
+          benchmark: isPercentage ? (comp.benchmark * 100).toFixed(2) : comp.benchmark.toFixed(1),
+          good: isPercentage ? (comp.good * 100).toFixed(2) : comp.good.toFixed(1),
+          excellent: isPercentage ? (comp.excellent * 100).toFixed(2) : comp.excellent.toFixed(1),
+          status: comp.status,
+          unit: isPercentage ? '%' : '',
+          description: comp.description,
+          tooltip: comp.tooltip,
+          industryContext: comp.industryContext,
+          statusMessage: comp.statusMessage,
+          source: comp.source,
+        }
+      })
+  }, [comparisons, platform])
   
   const topContent = useMemo(() => {
-  if (!filteredData) return []
-  
-  let posts = filteredData.dataPoints
-    .filter(p => p.metrics.title && Number(p.metrics.impressions) > 0)
-    .map(p => {
-      // LEER engagement_rate del archivo
-      let engRate = Number(p.metrics.engagement_rate || 0)
+    if (!filteredData) return []
+    
+    let posts = filteredData.dataPoints
+      .filter(p => p.metrics.title && Number(p.metrics.impressions) > 0)
+      .map((p, index) => {
+        let engRate = Number(p.metrics.engagement_rate || 0)
+        
+        if (engRate < 1 && engRate > 0) {
+          engRate = engRate * 100
+        }
+        
+        return {
+          id: p.id || `${p.date}-${p.source}-${index}`, // USAR ID ÚNICO
+          title: String(p.metrics.title),
+          source: p.source,
+          date: p.date,
+          link: String(p.metrics.link || ''),
+          impressions: Number(p.metrics.impressions || 0),
+          engagements: Number(p.metrics.engagements || 0),
+          clicks: Number(p.metrics.clicks || 0),
+          reactions: Number(p.metrics.reactions || p.metrics.likes || 0),
+          comments: Number(p.metrics.comments || 0),
+          shares: Number(p.metrics.reposts || p.metrics.shares || 0),
+          engagement_rate: engRate,
+        }
+      })
+    
+    posts.sort((a, b) => {
+      let vA = a[sortBy as keyof typeof a]
+      let vB = b[sortBy as keyof typeof b]
       
-      // Si está en decimal (< 1), convertir a porcentaje
-      // LinkedIn da 0.2217 en lugar de 22.17, hay que multiplicar por 100
-      if (engRate < 1 && engRate > 0) {
-        engRate = engRate * 100
+      if (sortBy === "date") {
+        vA = new Date(a.date).getTime()
+        vB = new Date(b.date).getTime()
       }
       
-      return {
-        title: String(p.metrics.title),
-        source: p.source,
-        date: p.date,
-        link: String(p.metrics.link || ''),
-        impressions: Number(p.metrics.impressions || 0),
-        engagements: Number(p.metrics.engagements || 0),
-        clicks: Number(p.metrics.clicks || 0),
-        reactions: Number(p.metrics.reactions || p.metrics.likes || 0),
-        comments: Number(p.metrics.comments || 0),
-        shares: Number(p.metrics.reposts || p.metrics.shares || 0),
-        engagement_rate: engRate, // ✅ YA ESTÁ EN %
+      if (typeof vA === 'number' && typeof vB === 'number') {
+        return sortDir === "desc" ? vB - vA : vA - vB
       }
+      
+      return 0
     })
-  
-  posts.sort((a, b) => {
-    let vA = a[sortBy as keyof typeof a]
-    let vB = b[sortBy as keyof typeof b]
     
-    if (sortBy === "date") {
-      vA = new Date(a.date).getTime()
-      vB = new Date(b.date).getTime()
-    }
-    
-    if (typeof vA === 'number' && typeof vB === 'number') {
-      return sortDir === "desc" ? vB - vA : vA - vB
-    }
-    
-    return 0
-  })
-  
-  return posts.slice(0, 20)
-}, [filteredData, sortBy, sortDir])
+    return rowsPerPage === 999 ? posts : posts.slice(0, rowsPerPage)
+  }, [filteredData, sortBy, sortDir, rowsPerPage])
   
   const handleSort = (key: string) => {
     if (sortBy === key) {
@@ -475,69 +473,78 @@ const benchmarkTableData = useMemo(() => {
               </Card>
             </div>
             
-        
-    {benchmarkTableData.length > 0 && (
-      <Card>
-        <CardHeader>
-          <CardTitle>Performance vs Benchmarks</CardTitle>
-          <CardDescription>Your metrics compared to industry standards</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <TooltipProvider>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 font-semibold text-neutral-400">KPI</th>
-                    <th className="text-center py-3 px-4 font-semibold text-neutral-400">Your Performance</th>
-                    <th className="text-center py-3 px-4 font-semibold text-neutral-400">Industry Avg</th>
-                    <th className="text-center py-3 px-4 font-semibold text-neutral-400">Good</th>
-                    <th className="text-center py-3 px-4 font-semibold text-neutral-400">Excellent</th>
-                    <th className="text-center py-3 px-4 font-semibold text-neutral-400">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {benchmarkTableData.map((row, idx) => (
-                    <tr 
-                      key={idx}
-                      className={`border-b border-border hover:bg-card-hover transition-colors ${
-                        idx % 2 === 0 ? 'bg-neutral-50/50 dark:bg-neutral-900/20' : ''
-                      }`}
-                    >
-                      <td className="py-3 px-4 font-medium">
-                        <div className="flex items-center gap-2">
-                          {row.kpi}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <HelpCircle className="w-4 h-4 text-neutral-400 cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <p className="font-semibold mb-1">{row.description}</p>
-                              <p className="text-xs text-neutral-400">Industry: {row.industryContext}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-center font-bold">{row.actual}{row.unit || '%'}</td>
-                      <td className="py-3 px-4 text-center">{row.benchmark}{row.unit || '%'}</td>
-                      <td className="py-3 px-4 text-center text-blue-500">{row.good}{row.unit || '%'}</td>
-                      <td className="py-3 px-4 text-center text-green-500">{row.excellent}{row.unit || '%'}</td>
-                      <td className="py-3 px-4 text-center">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(row.status)}`}>
-                          {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </TooltipProvider>
-        </CardContent>
-      </Card>
-    )}
+            {benchmarkTableData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Performance vs Benchmarks</CardTitle>
+                  <CardDescription>Your metrics compared to industry standards</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TooltipProvider delayDuration={100}>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left py-3 px-4 font-semibold text-neutral-400">KPI</th>
+                            <th className="text-center py-3 px-4 font-semibold text-neutral-400">Your Performance</th>
+                            <th className="text-center py-3 px-4 font-semibold text-neutral-400">Industry Avg</th>
+                            <th className="text-center py-3 px-4 font-semibold text-neutral-400">Good</th>
+                            <th className="text-center py-3 px-4 font-semibold text-neutral-400">Excellent</th>
+                            <th className="text-center py-3 px-4 font-semibold text-neutral-400">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {benchmarkTableData.map((row, idx) => (
+                            <tr 
+                              key={idx}
+                              className={`border-b border-border hover:bg-card-hover transition-colors ${
+                                idx % 2 === 0 ? 'bg-neutral-50/50 dark:bg-neutral-900/20' : ''
+                              }`}
+                            >
+                              <td className="py-3 px-4 font-medium">
+                                <div className="flex items-center gap-2">
+                                  {row.kpi}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <HelpCircle className="w-4 h-4 text-neutral-400 cursor-help" />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      <p className="font-semibold mb-1">{row.tooltip}</p>
+                                      <p className="text-xs text-neutral-400 mb-1">{row.description}</p>
+                                      <p className="text-xs text-neutral-500">Industry: {row.industryContext}</p>
+                                      <p className="text-xs text-neutral-500 italic mt-1">Source: {row.source}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4 text-center font-bold">{row.actual}{row.unit || '%'}</td>
+                              <td className="py-3 px-4 text-center">{row.benchmark}{row.unit || '%'}</td>
+                              <td className="py-3 px-4 text-center text-blue-500">{row.good}{row.unit || '%'}</td>
+                              <td className="py-3 px-4 text-center text-green-500">{row.excellent}{row.unit || '%'}</td>
+                              <td className="py-3 px-4 text-center">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className={`px-2 py-1 rounded text-xs font-medium cursor-help ${getStatusColor(row.status)}`}>
+                                      {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="text-sm">{row.statusMessage}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </TooltipProvider>
+                </CardContent>
+              </Card>
+            )}
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* GRID RESPONSIVE PARA CARDS DE BENCHMARKS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
               {comparisons && linkedinMetrics && linkedinMetrics.totalPosts > 0 && (
                 <BenchmarkComparisonCard
                   comparisons={comparisons.linkedin}
@@ -561,6 +568,8 @@ const benchmarkTableData = useMemo(() => {
                   }
                 />
               )}
+              
+              {/* FUTURO: Agregar más plataformas aquí (YouTube, TikTok, etc.) */}
             </div>
             
             {recommendations.length > 0 && (
@@ -586,8 +595,22 @@ const benchmarkTableData = useMemo(() => {
             
             <Card>
               <CardHeader>
-                <CardTitle>Top Content Performance</CardTitle>
-                <CardDescription>Best performing posts ranked by engagement</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Top Content Performance</CardTitle>
+                    <CardDescription>Best performing posts ranked by engagement</CardDescription>
+                  </div>
+                  <select
+                    value={rowsPerPage}
+                    onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                    className="px-3 py-1.5 border border-border rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value={20}>Show 20</option>
+                    <option value={30}>Show 30</option>
+                    <option value={50}>Show 50</option>
+                    <option value={999}>Show All</option>
+                  </select>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -682,7 +705,7 @@ const benchmarkTableData = useMemo(() => {
                     <tbody>
                       {topContent.map((post, idx) => (
                         <tr 
-                          key={idx} 
+                          key={post.id}
                           className={`border-b border-border hover:bg-card-hover transition-colors ${
                             idx % 2 === 0 ? 'bg-neutral-50/50 dark:bg-neutral-900/20' : ''
                           }`}

@@ -1,8 +1,8 @@
 /**
  * File: sidebar.tsx
  * Path: /components/layout/sidebar.tsx
- * Last Modified: 2025-12-06
- * Description: Sidebar navigation con links funcionales, sin errores de SSR
+ * Last Modified: 2025-12-09
+ * Description: Sidebar con sincronización perfecta de tabs
  */
 
 "use client"
@@ -38,13 +38,24 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const isActive = (href: string) => {
     if (!mounted) return false
     
+    const currentTab = searchParams.get("tab")
+    
+    // Dashboard - activo cuando estamos en "/" sin tab o con tab=overview
     if (href === "/") {
-      return pathname === "/" && !searchParams.get("tab")
+      return pathname === "/" && (!currentTab || currentTab === "overview")
     }
-    if (href.includes("?tab=")) {
-      const tabName = href.split("tab=")[1]
-      return pathname === "/" && searchParams.get("tab") === tabName
+    
+    // Social - activo cuando tab=social
+    if (href === "/?tab=social") {
+      return pathname === "/" && currentTab === "social"
     }
+    
+    // Web - activo cuando tab=web
+    if (href === "/?tab=web") {
+      return pathname === "/" && currentTab === "web"
+    }
+    
+    // Otras rutas
     return pathname === href
   }
 

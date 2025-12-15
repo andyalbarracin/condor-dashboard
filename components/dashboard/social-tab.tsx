@@ -1,40 +1,39 @@
 /**
  * File: social-tab.tsx
  * Path: /components/dashboard/social-tab.tsx
- * Last Modified: 2025-12-06
- * Description: Tab de Social con KPIs y visualizaciones
+ * Last Modified: 2025-12-08
+ * Description: Social tab COMPLETO con todas las funcionalidades
  */
 
 "use client"
 
+import { useState } from "react"
 import { KPICard } from "./kpi-card"
 import { CalendarHeatmap } from "./calendar-heatmap"
 import { PlatformBreakdownPie } from "@/components/dashboard/platform-breakdown-pie"
 import { TopContentTab } from "./top-content-tab"
-import { BarChart3, Eye, MousePointerClick, TrendingUp } from "lucide-react"
+import { PostDrilldown } from "./post-drilldown"
+import { DemographicCard } from "./demographic-card"
+import { FollowersChart } from "./followers-chart"
+import { BarChart3, Eye, MousePointerClick, TrendingUp, MapPin, Briefcase, Users, Building2, Award } from "lucide-react"
 import type { ParsedDataset } from "@/lib/parsers/types"
 
 interface SocialTabProps {
   data: ParsedDataset
   platform: string
+  followersData?: ParsedDataset | null
+  visitorsData?: ParsedDataset | null
 }
 
-/**
- * Normaliza nombre de plataforma para comparación
- */
 function normalizePlatform(platform: string): string {
   const normalized = platform.toLowerCase()
   if (normalized === 'x') return 'twitter'
   return normalized
 }
 
-/**
- * Calcula KPIs agregados desde los dataPoints
- */
 function calculateKPIs(data: ParsedDataset, platform: string) {
   let filteredPoints = data.dataPoints
   
-  // Filtrar por plataforma si no es "All"
   if (platform !== "All") {
     const normalizedFilter = normalizePlatform(platform)
     filteredPoints = filteredPoints.filter(p => 
@@ -87,12 +86,89 @@ function formatNumber(num: number): string {
   return num.toString()
 }
 
-export function SocialTab({ data, platform }: SocialTabProps) {
+function extractDemographics(data: ParsedDataset | null | undefined, sheetName: string) {
+  if (!data || !data.rawHeaders) return []
+  
+  return data.dataPoints
+    .filter(p => {
+      const hasLocationData = p.metrics.Location || p.metrics.location
+      const hasJobData = p.metrics['Job function'] || p.metrics.job_function
+      const hasIndustryData = p.metrics.Industry || p.metrics.industry
+      const hasSeniorityData = p.metrics.Seniority || p.metrics.seniority
+      const hasCompanySizeData = p.metrics['Company size'] || p.metrics.company_size
+      
+      return hasLocationData || hasJobData || hasIndustryData || hasSeniorityData || hasCompanySizeData
+    })
+    .map(p => ({
+      label: String(p.metrics[sheetName] || p.metrics[sheetName.toLowerCase().replace(' ', '_')] || ''),
+      value: Number(p.metrics.total_followers || p.metrics['Total followers'] || p.metrics['Total views'] || 0)
+    }))
+    .filter(item => item.label && item.value > 0)
+    .sort((a, b) => b.value - a.value)
+}
+
+function extractFollowersTimeSeries(data: ParsedDataset | null | undefined) {
+  if (!data) return []
+  
+  return data.dataPoints
+    .filter(p => p.metrics.total_followers !== undefined || p.metrics['Total followers'] !== undefined)
+    .map(p => ({
+      date: p.date,
+      total_followers: Number(p.metrics.total_followers || p.metrics['Total followers'] || 0),
+      organic_followers: Number(p.metrics.organic_followers || p.metrics['Organic followers'] || 0),
+      sponsored_followers: Number(p.metrics.sponsored_followers || p.metrics['Sponsored followers'] || 0),
+    }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+}
+
+export function SocialTab({ data, platform, followersData, visitorsData }: SocialTabProps) {
+  const [drilldownOpen, setDrilldownOpen] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<any>(null)
+  
   const kpis = calculateKPIs(data, platform)
+  
+  const followersLocation = extractDemographics(followersData, 'Location')
+  const followersJobFunction = extractDemographics(followersData, 'Job function')
+  const followersIndustry = extractDemographics(followersData, 'Industry')
+  const followersSeniority = extractDemographics(followersData, 'Seniority')
+  const followersCompanySize = extractDemographics(followersData, 'Company size')
+  
+  const visitorsLocation = extractDemographics(visitorsData, 'Location')
+  const visitorsJobFunction = extractDemographics(visitorsData, 'Job function')
+  const visitorsIndustry = extractDemographics(visitorsData, 'Industry')
+  const visitorsSeniority = extractDemographics(visitorsData, 'Seniority')
+  const visitorsCompanySize = extractDemographics(visitorsData, 'Company size')
+  
+  const followersTimeSeries = extractFollowersTimeSeries(followersData)
+  
+  const handleDateClick = (dateStr: string, metrics: Record<string, number>) => {
+    const post = data.dataPoints.find(p => p.date === dateStr)
+    if (post) {
+      setSelectedPost({
+        id: post.id,
+        title: String(post.metrics.title || '(No title)'),
+        content: String(post.metrics.content || ''),
+        link: String(post.metrics.link || ''),
+        date: post.date,
+        source: post.source,
+        impressions: Number(post.metrics.impressions || 0),
+        engagements: Number(post.metrics.engagements || 0),
+        reactions: Number(post.metrics.reactions || 0),
+        comments: Number(post.metrics.comments || 0),
+        shares: Number(post.metrics.reposts || post.metrics.shares || 0),
+        clicks: Number(post.metrics.clicks || 0),
+        engagement_rate: Number(post.metrics.engagement_rate || 0),
+        followers_gained: metrics.new_followers || undefined,
+      })
+      setDrilldownOpen(true)
+    }
+  }
+
+  const hasFollowersData = followersLocation.length > 0 || followersTimeSeries.length > 0
+  const hasVisitorsData = visitorsLocation.length > 0
 
   return (
     <div className="space-y-6">
-      {/* KPI Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           label="Total Posts"
@@ -123,10 +199,14 @@ export function SocialTab({ data, platform }: SocialTabProps) {
         />
       </div>
 
-      {/* Calendar Heatmap + Platform Breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         <div className="lg:col-span-3">
-          <CalendarHeatmap data={data} platform={platform} dateRange="all" />
+          <CalendarHeatmap 
+            data={data} 
+            platform={platform} 
+            dateRange="all"
+            onDateClick={handleDateClick}
+          />
         </div>
         
         <div className="lg:col-span-1">
@@ -134,8 +214,133 @@ export function SocialTab({ data, platform }: SocialTabProps) {
         </div>
       </div>
 
-      {/* Top Content Table */}
       <TopContentTab data={data} platform={platform} />
+      
+      {hasFollowersData && (
+        <>
+          {followersTimeSeries.length > 0 && (
+            <FollowersChart data={followersTimeSeries} />
+          )}
+          
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground">Follower Demographics</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {followersLocation.length > 0 && (
+                <DemographicCard
+                  title="Location"
+                  description="Where your followers are from"
+                  data={followersLocation}
+                  icon={<MapPin className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
+              
+              {followersJobFunction.length > 0 && (
+                <DemographicCard
+                  title="Job Function"
+                  description="Professional roles of your followers"
+                  data={followersJobFunction}
+                  icon={<Briefcase className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
+              
+              {followersIndustry.length > 0 && (
+                <DemographicCard
+                  title="Industry"
+                  description="Industries your followers work in"
+                  data={followersIndustry}
+                  icon={<Building2 className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
+              
+              {followersSeniority.length > 0 && (
+                <DemographicCard
+                  title="Seniority"
+                  description="Career level of your followers"
+                  data={followersSeniority}
+                  icon={<Award className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
+              
+              {followersCompanySize.length > 0 && (
+                <DemographicCard
+                  title="Company Size"
+                  description="Size of companies your followers work at"
+                  data={followersCompanySize}
+                  icon={<Users className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
+            </div>
+          </div>
+        </>
+      )}
+      
+      {hasVisitorsData && (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-foreground">Visitor Demographics</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {visitorsLocation.length > 0 && (
+              <DemographicCard
+                title="Location"
+                description="Where your visitors are from"
+                data={visitorsLocation}
+                icon={<MapPin className="w-5 h-5" />}
+                valueLabel="views"
+              />
+            )}
+            
+            {visitorsJobFunction.length > 0 && (
+              <DemographicCard
+                title="Job Function"
+                description="Professional roles of your visitors"
+                data={visitorsJobFunction}
+                icon={<Briefcase className="w-5 h-5" />}
+                valueLabel="views"
+              />
+            )}
+            
+            {visitorsIndustry.length > 0 && (
+              <DemographicCard
+                title="Industry"
+                description="Industries your visitors work in"
+                data={visitorsIndustry}
+                icon={<Building2 className="w-5 h-5" />}
+                valueLabel="views"
+              />
+            )}
+            
+            {visitorsSeniority.length > 0 && (
+              <DemographicCard
+                title="Seniority"
+                description="Career level of your visitors"
+                data={visitorsSeniority}
+                icon={<Award className="w-5 h-5" />}
+                valueLabel="views"
+              />
+            )}
+            
+            {visitorsCompanySize.length > 0 && (
+              <DemographicCard
+                title="Company Size"
+                description="Size of companies your visitors work at"
+                data={visitorsCompanySize}
+                icon={<Users className="w-5 h-5" />}
+                valueLabel="views"
+              />
+            )}
+          </div>
+        </div>
+      )}
+      
+      <PostDrilldown
+        open={drilldownOpen}
+        post={selectedPost}
+        onClose={() => setDrilldownOpen(false)}
+      />
     </div>
   )
 }

@@ -2,7 +2,7 @@
  * File: benchmark-calculator.ts
  * Path: /lib/reports/benchmark-calculator.ts
  * Last Modified: 2025-12-08
- * Description: CORREGIDO - Engagement rates en formato correcto + tooltips
+ * Description: Multi-industry benchmark support
  */
 
 import type { ParsedDataset } from '@/lib/parsers/types'
@@ -18,8 +18,11 @@ export interface BenchmarkComparison {
   gap: number
   gapPercentage: number
   description: string
+  tooltip: string
   platform: 'linkedin' | 'twitter'
-  industryContext?: string // NUEVO para tooltip
+  industryContext: string
+  statusMessage: string
+  source: string
 }
 
 export interface PlatformMetrics {
@@ -32,6 +35,19 @@ export interface PlatformMetrics {
   clickThroughRate: number
   shareRate: number
   commentRate: number
+}
+
+// NUEVA FUNCIÓN: Obtener industria del usuario (por ahora hardcoded, después desde DB)
+function getUserIndustry(): string {
+  // TODO: Obtener de localStorage o DB cuando tengamos onboarding
+  const stored = localStorage.getItem('condor_user_industry')
+  return stored || benchmarksData.default_industry
+}
+
+// NUEVA FUNCIÓN: Obtener KPIs de la industria
+function getIndustryKPIs(industryKey: string) {
+  const industries = benchmarksData.industries as Record<string, any>
+  return industries[industryKey] || industries[benchmarksData.default_industry]
 }
 
 export function extractPlatformMetrics(data: ParsedDataset, platform: 'linkedin' | 'twitter' | 'all'): PlatformMetrics {
@@ -48,17 +64,14 @@ export function extractPlatformMetrics(data: ParsedDataset, platform: 'linkedin'
   const totalShares = posts.reduce((sum, p) => sum + Number(p.metrics.reposts || p.metrics.shares || 0), 0)
   const totalComments = posts.reduce((sum, p) => sum + Number(p.metrics.comments || 0), 0)
   
-  // CORREGIDO: Usar engagement_rate del archivo y convertir correctamente
   const engagementRates = posts.map(p => {
     let rate = Number(p.metrics.engagement_rate || 0)
-    // Si está en decimal (< 1), convertir a porcentaje
     if (rate < 1 && rate > 0) {
       rate = rate * 100
     }
     return rate
   })
   
-  // Promedio en % (ej: 22.17), luego convertir a decimal (0.2217) para comparar con benchmarks
   const avgEngagementRate = totalPosts > 0 
     ? (engagementRates.reduce((sum, rate) => sum + rate, 0) / totalPosts) / 100
     : 0
@@ -68,7 +81,7 @@ export function extractPlatformMetrics(data: ParsedDataset, platform: 'linkedin'
     totalPosts,
     totalImpressions,
     totalEngagements,
-    avgEngagementRate, // Ahora está correcto (decimal 0.2217 = 22.17%)
+    avgEngagementRate,
     avgEngagementsPerPost: totalPosts > 0 ? (totalEngagements / totalPosts) : 0,
     clickThroughRate: totalImpressions > 0 ? (totalClicks / totalImpressions) : 0,
     shareRate: totalImpressions > 0 ? (totalShares / totalImpressions) : 0,
@@ -76,14 +89,22 @@ export function extractPlatformMetrics(data: ParsedDataset, platform: 'linkedin'
   }
 }
 
+function getStatusMessage(status: string): string {
+  const messages = benchmarksData.status_messages as Record<string, string>
+  return messages[status] || messages.below
+}
+
 export function compareEngagementRate(metrics: PlatformMetrics): BenchmarkComparison {
   const platform: 'linkedin' | 'twitter' = metrics.platform === 'all' ? 'linkedin' : metrics.platform as 'linkedin' | 'twitter'
   
+  const industryKey = getUserIndustry()
+  const industryData = getIndustryKPIs(industryKey)
+  
   const kpiName = platform === 'linkedin' ? 'engagement_rate_linkedin' : 'engagement_rate_x'
-  const kpiData = benchmarksData.kpis.find(k => k.name === kpiName)
+  const kpiData = industryData.kpis.find((k: any) => k.name === kpiName)
   
   if (!kpiData) {
-    throw new Error(`KPI ${kpiName} not found in benchmarks`)
+    throw new Error(`KPI ${kpiName} not found for industry ${industryKey}`)
   }
   
   const actual = metrics.avgEngagementRate
@@ -100,7 +121,7 @@ export function compareEngagementRate(metrics: PlatformMetrics): BenchmarkCompar
   const gapPercentage = benchmark > 0 ? (gap / benchmark) * 100 : 0
   
   return {
-    kpi: `Engagement Rate (${platform === 'linkedin' ? 'LinkedIn' : 'X'})`,
+    kpi: kpiData.label,
     actual,
     benchmark,
     good,
@@ -109,26 +130,37 @@ export function compareEngagementRate(metrics: PlatformMetrics): BenchmarkCompar
     gap,
     gapPercentage,
     description: kpiData.description,
+    tooltip: kpiData.tooltip,
     platform,
-    industryContext: kpiData.source_industry, // NUEVO
+    industryContext: industryData.name,
+    statusMessage: getStatusMessage(status),
+    source: kpiData.source,
   }
 }
 
 export function compareAvgEngagementsPerPost(metrics: PlatformMetrics): BenchmarkComparison {
   const platform: 'linkedin' | 'twitter' = metrics.platform === 'all' ? 'linkedin' : metrics.platform as 'linkedin' | 'twitter'
   
-  const kpiData = benchmarksData.kpis.find(k => k.name === 'avg_engagement_per_post')
+  const industryKey = getUserIndustry()
+  const industryData = getIndustryKPIs(industryKey)
+  
+  const kpiData = industryData.kpis.find((k: any) => k.name === 'avg_engagement_per_post')
   
   if (!kpiData) {
-    throw new Error('avg_engagement_per_post not found in benchmarks')
+    throw new Error('avg_engagement_per_post not found')
   }
   
   const actual = metrics.avgEngagementsPerPost
   
-  // BENCHMARKS REALES (número absoluto de engagements, NO porcentaje)
-  const benchmark = platform === 'linkedin' ? 15 : 5
-  const good = platform === 'linkedin' ? 25 : 10
-  const excellent = platform === 'linkedin' ? 40 : 20
+  const benchmark = platform === 'linkedin' 
+    ? kpiData.benchmark.linkedin_industry_avg 
+    : kpiData.benchmark.x_industry_avg
+  const good = platform === 'linkedin' 
+    ? kpiData.benchmark.linkedin_good 
+    : kpiData.benchmark.x_good
+  const excellent = platform === 'linkedin' 
+    ? kpiData.benchmark.linkedin_excellent 
+    : kpiData.benchmark.x_excellent
   
   let status: 'below' | 'average' | 'good' | 'excellent' = 'below'
   if (actual >= excellent) status = 'excellent'
@@ -139,7 +171,7 @@ export function compareAvgEngagementsPerPost(metrics: PlatformMetrics): Benchmar
   const gapPercentage = benchmark > 0 ? (gap / benchmark) * 100 : 0
   
   return {
-    kpi: `Avg Engagements per Post (${platform === 'linkedin' ? 'LinkedIn' : 'X'})`,
+    kpi: `${kpiData.label} (${platform === 'linkedin' ? 'LinkedIn' : 'X'})`,
     actual,
     benchmark,
     good,
@@ -148,24 +180,37 @@ export function compareAvgEngagementsPerPost(metrics: PlatformMetrics): Benchmar
     gap,
     gapPercentage,
     description: kpiData.description,
+    tooltip: kpiData.tooltip,
     platform,
-    industryContext: kpiData.source_industry,
+    industryContext: industryData.name,
+    statusMessage: getStatusMessage(status),
+    source: kpiData.source || 'Industry benchmarks',
   }
 }
 
 export function compareClickThroughRate(metrics: PlatformMetrics): BenchmarkComparison {
   const platform: 'linkedin' | 'twitter' = metrics.platform === 'all' ? 'linkedin' : metrics.platform as 'linkedin' | 'twitter'
   
-  const kpiData = benchmarksData.kpis.find(k => k.name === 'click_through_rate')
+  const industryKey = getUserIndustry()
+  const industryData = getIndustryKPIs(industryKey)
+  
+  const kpiData = industryData.kpis.find((k: any) => k.name === 'click_through_rate')
   
   if (!kpiData) {
-    throw new Error('click_through_rate not found in benchmarks')
+    throw new Error('click_through_rate not found')
   }
   
   const actual = metrics.clickThroughRate
-  const benchmark = kpiData.benchmark.industry_avg || 0
-  const good = kpiData.benchmark.good || 0
-  const excellent = kpiData.benchmark.excellent || 0
+  
+  const benchmark = platform === 'linkedin'
+    ? kpiData.benchmark.linkedin_industry_avg
+    : kpiData.benchmark.x_industry_avg
+  const good = platform === 'linkedin'
+    ? kpiData.benchmark.linkedin_good
+    : kpiData.benchmark.x_good
+  const excellent = platform === 'linkedin'
+    ? kpiData.benchmark.linkedin_excellent
+    : kpiData.benchmark.x_excellent
   
   let status: 'below' | 'average' | 'good' | 'excellent' = 'below'
   if (actual >= excellent) status = 'excellent'
@@ -176,7 +221,7 @@ export function compareClickThroughRate(metrics: PlatformMetrics): BenchmarkComp
   const gapPercentage = benchmark > 0 ? (gap / benchmark) * 100 : 0
   
   return {
-    kpi: `Click-Through Rate (${platform === 'linkedin' ? 'LinkedIn' : 'X'})`,
+    kpi: `${kpiData.label} (${platform === 'linkedin' ? 'LinkedIn' : 'X'})`,
     actual,
     benchmark,
     good,
@@ -185,8 +230,11 @@ export function compareClickThroughRate(metrics: PlatformMetrics): BenchmarkComp
     gap,
     gapPercentage,
     description: kpiData.description,
+    tooltip: kpiData.tooltip,
     platform,
-    industryContext: kpiData.source_industry,
+    industryContext: industryData.name,
+    statusMessage: getStatusMessage(status),
+    source: kpiData.source || 'Industry benchmarks',
   }
 }
 
@@ -233,4 +281,14 @@ export function generateRecommendations(comparisons: BenchmarkComparison[]): str
   })
   
   return recommendations
+}
+
+// NUEVA FUNCIÓN: Get available industries
+export function getAvailableIndustries() {
+  const industries = benchmarksData.industries as Record<string, any>
+  return Object.entries(industries).map(([key, data]) => ({
+    key,
+    name: data.name,
+    description: data.description,
+  }))
 }

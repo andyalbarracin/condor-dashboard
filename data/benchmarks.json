@@ -1,203 +1,255 @@
 {
-  "kpis": [
-    {
-      "name": "engagement_rate_linkedin",
-      "description": "Interacciones totales / impresiones",
-      "benchmark": {
-        "industry_avg": 0.052,
-        "good": 0.06,
-        "excellent": 0.07
+  "industries": {
+    "telecom": {
+      "name": "Telecom / Network Infrastructure / Remote Site Automation",
+      "description": "Telecom companies rely on strong digital presence to reach B2B and B2C audiences. Engagement, content regularity, and technical expertise shared online are key to maintaining reputation and driving business growth.",
+      "peer_group": [
+        "Network infrastructure providers",
+        "Industrial automation vendors",
+        "Edge computing solutions",
+        "Telecom equipment vendors (Open RAN, 5G, IoT)"
+      ],
+      "kpis": [
+        {
+          "name": "engagement_rate_linkedin",
+          "label": "Engagement Rate (LinkedIn)",
+          "description": "Total interactions divided by impressions. Shows how relevant your content is to your audience.",
+          "tooltip": "Percentage of impressions that generate an interaction (like, comment, share or click).",
+          "benchmark": {
+            "industry_avg": 0.052,
+            "good": 0.06,
+            "excellent": 0.07
+          },
+          "source": "B2B Tech / Telecom benchmarks 2024"
+        },
+        {
+          "name": "engagement_rate_x",
+          "label": "Engagement Rate (X)",
+          "description": "Interactions divided by impressions on X/Twitter. Indicates how relevant and engaging content is for that platform's audience.",
+          "tooltip": "Total interactions per impressions on X. Lower than LinkedIn due to platform dynamics.",
+          "benchmark": {
+            "industry_avg": 0.016,
+            "good": 0.02,
+            "excellent": 0.03
+          },
+          "source": "Tech / Telecom vendors benchmarks 2024"
+        },
+        {
+          "name": "avg_engagement_per_post",
+          "label": "Avg Engagements per Post",
+          "description": "Average number of interactions (likes, comments, shares, clicks) per post. Helps identify if posts resonate regardless of reach.",
+          "tooltip": "Absolute number of engagements per post. Good indicator independent of audience size.",
+          "benchmark": {
+            "linkedin_industry_avg": 15,
+            "linkedin_good": 25,
+            "linkedin_excellent": 40,
+            "x_industry_avg": 5,
+            "x_good": 10,
+            "x_excellent": 20
+          },
+          "source": "B2B Tech industry averages"
+        },
+        {
+          "name": "click_through_rate",
+          "label": "Click-Through Rate",
+          "description": "Clicks on post links divided by impressions. Measures how effective your content is at driving traffic or deeper interest.",
+          "tooltip": "Percentage of viewers who clicked on links in your posts.",
+          "benchmark": {
+            "linkedin_industry_avg": 0.02,
+            "linkedin_good": 0.03,
+            "linkedin_excellent": 0.05,
+            "x_industry_avg": 0.008,
+            "x_good": 0.015,
+            "x_excellent": 0.025
+          },
+          "source": "Social media marketing benchmarks 2024"
+        },
+        {
+          "name": "follower_growth_rate",
+          "label": "Follower Growth Rate",
+          "description": "Monthly percentage increase in followers. Reflects growing brand interest and expanded reach potential.",
+          "tooltip": "How fast your audience is growing each month.",
+          "benchmark": {
+            "industry_avg": 0.01,
+            "good": 0.02,
+            "excellent": 0.03
+          },
+          "source": "B2B Tech average growth rates"
+        },
+        {
+          "name": "share_rate",
+          "label": "Share Rate",
+          "description": "Shares divided by impressions. Measures how often your content is reshared, increasing organic reach.",
+          "tooltip": "Percentage of posts that get shared by viewers.",
+          "benchmark": {
+            "industry_avg": 0.005,
+            "good": 0.01,
+            "excellent": 0.015
+          },
+          "source": "LinkedIn B2B content benchmarks"
+        }
+      ],
+      "micro_benchmarks": {
+        "linkedin": {
+          "multi_image_posts_engagement": 0.066,
+          "single_image_posts_engagement": 0.049,
+          "text_only_posts_engagement": 0.032,
+          "document_posts_engagement": 0.045
+        },
+        "twitter_x": {
+          "avg_post_engagement": 0.016,
+          "high_performance_thread_engagement": 0.03,
+          "link_post_penalty_factor": -0.25
+        }
       },
-      "source_industry": "B2B Tech / Telecom"
-    },
-    {
-      "name": "engagement_rate_x",
-      "description": "Interacciones totales / impresiones",
-      "benchmark": {
-        "industry_avg": 0.016,
-        "good": 0.02,
-        "excellent": 0.03
-      },
-      "source_industry": "Tech / Telecom vendors"
-    },
-    {
-      "name": "follower_growth_rate",
-      "description": "Crecimiento mensual de seguidores",
-      "benchmark": {
-        "industry_avg": 0.01,
-        "good": 0.02,
-        "excellent": 0.03
+      "recommendations": {
+        "linkedin_targets": {
+          "monthly_engagement_rate_target": 0.055,
+          "post_frequency_target": 12,
+          "conversion_target": 0.06
+        },
+        "x_targets": {
+          "engagement_rate_target": 0.02,
+          "threads_per_month": 4,
+          "link_post_ratio": 0.25
+        },
+        "content_mix": {
+          "educational": 0.40,
+          "case_study": 0.25,
+          "product_update": 0.20,
+          "company_culture": 0.15
+        }
       }
     },
-    {
-      "name": "content_output_frequency",
-      "description": "Cantidad de publicaciones por mes",
-      "benchmark": {
-        "industry_avg": 8,
-        "recommended": 12,
-        "high_performance": 16
+    "saas": {
+      "name": "SaaS (Software as a Service)",
+      "description": "SaaS companies leverage content marketing and thought leadership to stand out in a crowded market. Success is measured by consistent content output, high engagement rates, and growing a professional audience.",
+      "peer_group": [
+        "B2B SaaS providers",
+        "Cloud software companies",
+        "Enterprise software vendors",
+        "Developer tools"
+      ],
+      "kpis": [
+        {
+          "name": "engagement_rate_linkedin",
+          "label": "Engagement Rate (LinkedIn)",
+          "description": "Total interactions divided by impressions.",
+          "tooltip": "SaaS brands typically see higher engagement due to product-led content.",
+          "benchmark": {
+            "industry_avg": 0.045,
+            "good": 0.055,
+            "excellent": 0.070
+          },
+          "source": "SaaS Marketing benchmarks 2024"
+        },
+        {
+          "name": "engagement_rate_x",
+          "label": "Engagement Rate (X)",
+          "description": "Interactions divided by impressions on X/Twitter.",
+          "tooltip": "X is critical for SaaS due to developer community.",
+          "benchmark": {
+            "industry_avg": 0.020,
+            "good": 0.030,
+            "excellent": 0.045
+          },
+          "source": "Tech Twitter benchmarks"
+        },
+        {
+          "name": "avg_engagement_per_post",
+          "label": "Avg Engagements per Post",
+          "description": "Average interactions per post.",
+          "tooltip": "SaaS content often gets high engagement from niche audiences.",
+          "benchmark": {
+            "linkedin_industry_avg": 20,
+            "linkedin_good": 35,
+            "linkedin_excellent": 50,
+            "x_industry_avg": 8,
+            "x_good": 15,
+            "x_excellent": 30
+          },
+          "source": "SaaS content performance data"
+        }
+      ],
+      "recommendations": {
+        "linkedin_targets": {
+          "monthly_engagement_rate_target": 0.055,
+          "post_frequency_target": 15,
+          "conversion_target": 0.08
+        },
+        "x_targets": {
+          "engagement_rate_target": 0.025,
+          "threads_per_month": 8,
+          "link_post_ratio": 0.40
+        },
+        "content_mix": {
+          "product_updates": 0.30,
+          "educational": 0.30,
+          "customer_stories": 0.25,
+          "company_culture": 0.15
+        }
       }
     },
-    {
-      "name": "avg_engagement_per_post",
-      "description": "Interacciones promedio por publicación",
-      "benchmark": {
-        "linkedin_industry_avg": 15,
-        "linkedin_good": 25,
-        "linkedin_excellent": 40,
-        "x_industry_avg": 5,
-        "x_good": 10,
-        "x_excellent": 20
+    "ecommerce": {
+      "name": "E-commerce",
+      "description": "Ecommerce brands focus on visual storytelling, product launches, and high-frequency content to drive sales and brand loyalty.",
+      "peer_group": [
+        "Online retailers",
+        "D2C brands",
+        "Marketplace sellers",
+        "Fashion & lifestyle brands"
+      ],
+      "kpis": [
+        {
+          "name": "engagement_rate_linkedin",
+          "label": "Engagement Rate (LinkedIn)",
+          "description": "Total interactions divided by impressions.",
+          "tooltip": "Lower for B2C ecommerce, higher for B2B marketplace brands.",
+          "benchmark": {
+            "industry_avg": 0.025,
+            "good": 0.035,
+            "excellent": 0.050
+          },
+          "source": "E-commerce social benchmarks"
+        },
+        {
+          "name": "engagement_rate_x",
+          "label": "Engagement Rate (X)",
+          "description": "Interactions divided by impressions on X/Twitter.",
+          "tooltip": "Visual content and promotions drive engagement.",
+          "benchmark": {
+            "industry_avg": 0.012,
+            "good": 0.018,
+            "excellent": 0.025
+          },
+          "source": "Retail social media benchmarks"
+        }
+      ],
+      "recommendations": {
+        "linkedin_targets": {
+          "monthly_engagement_rate_target": 0.030,
+          "post_frequency_target": 8,
+          "conversion_target": 0.05
+        },
+        "x_targets": {
+          "engagement_rate_target": 0.015,
+          "threads_per_month": 3,
+          "link_post_ratio": 0.50
+        },
+        "content_mix": {
+          "product_showcase": 0.40,
+          "lifestyle": 0.30,
+          "ugc_reviews": 0.20,
+          "promotions": 0.10
+        }
       }
-    },
-    {
-      "name": "click_through_rate",
-      "description": "Clics hacia el sitio / impresiones",
-      "benchmark": {
-        "industry_avg": 0.02,
-        "good": 0.03,
-        "excellent": 0.05
-      }
-    },
-    {
-      "name": "lead_conversion_rate",
-      "description": "Conversiones atribuidas a redes / clics",
-      "benchmark": {
-        "industry_avg": 0.04,
-        "good": 0.06,
-        "excellent": 0.10
-      }
-    },
-    {
-      "name": "share_rate",
-      "description": "Porcentaje de publicaciones compartidas",
-      "benchmark": {
-        "industry_avg": 0.005,
-        "good": 0.01,
-        "excellent": 0.015
-      }
-    },
-    {
-      "name": "comment_rate",
-      "description": "Comentarios / impresiones",
-      "benchmark": {
-        "industry_avg": 0.003,
-        "good": 0.006,
-        "excellent": 0.010
-      }
-    },
-    {
-      "name": "video_completion_rate",
-      "description": "Porcentaje de finalización en contenido en video",
-      "benchmark": {
-        "industry_avg": 0.25,
-        "good": 0.35,
-        "excellent": 0.50
-      }
-    },
-    {
-      "name": "brand_mentions",
-      "description": "Cantidad mensual de menciones de marca",
-      "benchmark": {
-        "industry_avg": 4,
-        "good": 8,
-        "excellent": 15
-      }
-    },
-    {
-      "name": "web_traffic_from_social",
-      "description": "Visitas al sitio provenientes de redes sociales",
-      "benchmark": {
-        "industry_avg": 0.10,
-        "good": 0.15,
-        "excellent": 0.20
-      }
-    }
-  ],
-
-  "micro_benchmarks": {
-    "linkedin": {
-      "multi_image_posts_engagement": 0.066,
-      "single_image_posts_engagement": 0.049,
-      "text_only_posts_engagement": 0.032,
-      "document_posts_engagement": 0.045
-    },
-    "twitter_x": {
-      "avg_post_engagement": 0.016,
-      "high_performance_thread_engagement": 0.03,
-      "link_post_penalty_factor": -0.25
     }
   },
-
-  "industry_comparison": {
-    "sector": "Telecom / Network Infrastructure / Remote Site Automation",
-    "peer_group": [
-      "Proveedores de infraestructura de red",
-      "Empresas de automatización industrial",
-      "Compañías B2B de edge computing",
-      "Vendors de telecom (Open RAN, 5G, IoT)"
-    ],
-    "observations": [
-      {
-        "company_type": "Telecom equipment vendors",
-        "patterns": {
-          "engagement_rate_avg": 0.03,
-          "top_content_formats": [
-            "casos de éxito",
-            "videos técnicos cortos",
-            "demos de producto",
-            "releases de features",
-            "clientes anunciados"
-          ],
-          "growth_rate": "0.5%–2% mensual",
-          "notes": "Contenido muy técnico suele tener engagement bajo pero altamente cualificado."
-        }
-      },
-      {
-        "company_type": "B2B Automation / Edge Computing",
-        "patterns": {
-          "engagement_rate_avg": 0.025,
-          "share_rate_avg": 0.01,
-          "lead_conversion_rate_avg": 0.06,
-          "notes": "El rendimiento mejora si se comunican ROI, reducción de costos, eficiencia energética, automatización."
-        }
-      },
-      {
-        "company_type": "Telecom Operators (Brand Accounts)",
-        "patterns": {
-          "engagement_rate_avg": 0.015,
-          "best_post_types": [
-            "historias de campo",
-            "outage recoveries",
-            "nuevos despliegues",
-            "contenido de impacto social"
-          ],
-          "notes": "Engagement más bajo por audiencia masiva; publicaciones técnicas tienen poca interacción."
-        }
-      }
-    ]
+  "status_messages": {
+    "below": "You posted, but results are below expectations — try new formats or better targeting.",
+    "average": "You matched industry average benchmarks — consistent, but room to grow.",
+    "good": "Your content outperformed the average benchmark! Keep the momentum going. 🚀",
+    "excellent": "Outstanding performance, well above industry standards! Consider amplifying this format."
   },
-
-  "recommendations_based_on_benchmarks": {
-    "linkedin_targets": {
-      "monthly_engagement_rate_target": 0.055,
-      "post_frequency_target": 12,
-      "conversion_target": 0.06
-    },
-    "x_targets": {
-      "engagement_rate_target": 0.02,
-      "threads_per_month": 4,
-      "link_post_ratio": 0.25
-    },
-    "cross_platform_targets": {
-      "traffic_from_social": 0.15,
-      "lead_conversion_rate": 0.06,
-      "content_mix": {
-        "educational": 0.40,
-        "case_study": 0.25,
-        "product": 0.20,
-        "culture_employer_branding": 0.15
-      }
-    }
-  }
+  "default_industry": "telecom"
 }

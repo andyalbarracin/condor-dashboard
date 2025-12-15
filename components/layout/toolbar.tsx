@@ -1,13 +1,13 @@
 /**
  * File: toolbar.tsx
  * Path: /components/layout/toolbar.tsx
- * Last Modified: 2025-12-06
- * Description: Toolbar con botón para limpiar datos
+ * Last Modified: 2025-12-09
+ * Description: Toolbar con botón para generar reportes
  */
 
 "use client"
 
-import { Upload, FileDown, Trash2 } from "lucide-react"
+import { Upload, FileText, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -36,6 +36,7 @@ export function Toolbar({
   const [showConfirm, setShowConfirm] = useState(false)
   const platforms = ["All", "LinkedIn", "X"]
   const hasPlatforms = uploadedFiles.length > 0
+  const showPlatformPicker = activeTab !== "web" && hasPlatforms
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -47,9 +48,8 @@ export function Toolbar({
     router.push("/upload")
   }
 
-  const handleExportPDF = () => {
-    console.log("Export PDF clicked")
-    alert("Export PDF feature coming soon!")
+  const handleGenerateReport = () => {
+    router.push("/reports")
   }
 
   const handleClearData = () => {
@@ -99,7 +99,7 @@ export function Toolbar({
               <option value="1 year">1 year</option>
             </select>
 
-            {hasPlatforms && (
+            {showPlatformPicker && (
               <div className="flex items-center gap-2">
                 {platforms.map((plat) => (
                   <button
@@ -129,13 +129,15 @@ export function Toolbar({
               Upload File
             </button>
             
-            <button
-              onClick={handleExportPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-card border border-border text-foreground rounded-lg font-medium hover:bg-accent transition-colors text-sm"
-            >
-              <FileDown className="w-4 h-4" />
-              Export PDF
-            </button>
+            {hasPlatforms && (
+              <button
+                onClick={handleGenerateReport}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity text-sm"
+              >
+                <FileText className="w-4 h-4" />
+                Generate Report
+              </button>
+            )}
 
             {hasPlatforms && (
               <button

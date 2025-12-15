@@ -1,15 +1,15 @@
 /**
  * File: benchmark-comparison.tsx
  * Path: /components/reports/benchmark-comparison.tsx
- * Last Modified: 2025-12-07
- * Description: Muestra comparaciones de KPIs vs benchmarks
+ * Last Modified: 2025-12-08
+ * Description: CORREGIDO - No multiplica valores absolutos
  */
 
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import type { BenchmarkComparison } from "@/lib/reports/benchmark-calculator"
-import { TrendingUp, TrendingDown, Minus, CheckCircle, AlertCircle } from "lucide-react"
+import { CheckCircle, TrendingUp, Minus, AlertCircle } from "lucide-react"
 
 interface BenchmarkComparisonProps {
   comparisons: BenchmarkComparison[]
@@ -47,6 +47,16 @@ export function BenchmarkComparisonCard({ comparisons, platform, icon }: Benchma
       default: return 'Unknown'
     }
   }
+  
+  // NUEVA FUNCIÓN: Determina si el valor es porcentaje o número absoluto
+  const formatValue = (comp: BenchmarkComparison, value: number): string => {
+    // Si es "Avg Engagements per Post", es número absoluto (NO multiplicar por 100)
+    if (comp.kpi.includes('Avg Engagements per Post')) {
+      return value.toFixed(1)
+    }
+    // Si es cualquier otro KPI (engagement rate, CTR), es porcentaje
+    return (value * 100).toFixed(2) + '%'
+  }
 
   return (
     <Card>
@@ -81,15 +91,15 @@ export function BenchmarkComparisonCard({ comparisons, platform, icon }: Benchma
               <div className="grid grid-cols-3 gap-4 text-xs">
                 <div>
                   <p className="text-neutral-500 mb-1">Your Performance</p>
-                  <p className="font-bold text-lg">{(comp.actual * 100).toFixed(2)}%</p>
+                  <p className="font-bold text-lg">{formatValue(comp, comp.actual)}</p>
                 </div>
                 <div>
                   <p className="text-neutral-500 mb-1">Industry Avg</p>
-                  <p className="font-semibold">{(comp.benchmark * 100).toFixed(2)}%</p>
+                  <p className="font-semibold">{formatValue(comp, comp.benchmark)}</p>
                 </div>
                 <div>
                   <p className="text-neutral-500 mb-1">Excellence</p>
-                  <p className="font-semibold">{(comp.excellent * 100).toFixed(2)}%</p>
+                  <p className="font-semibold">{formatValue(comp, comp.excellent)}</p>
                 </div>
               </div>
               

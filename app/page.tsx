@@ -1,14 +1,14 @@
 /**
  * File: page.tsx
  * Path: /app/page.tsx
- * Last Modified: 2025-12-06
- * Description: Página principal con filtro de fecha funcional
+ * Last Modified: 2025-12-09
+ * Description: Dashboard con filtro de fecha basado en datos, no en fecha actual
  */
 
 "use client"
 
 import { useState, useEffect, createContext, useContext } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 import { Toolbar } from "@/components/layout/toolbar"
@@ -32,43 +32,48 @@ export function usePlatform() {
 }
 
 /**
- * Filtra datos por rango de fecha
+ * Filtra datos por rango de fecha - calculado desde la fecha MÁS RECIENTE de los datos
  */
 function filterByDateRange(data: ParsedDataset, dateRange: string): ParsedDataset {
-  const now = new Date()
-  let startDate = new Date()
+  if (!data.dataPoints || data.dataPoints.length === 0) return data
+  
+  // Encontrar la fecha MÁS RECIENTE en los datos
+  const dates = data.dataPoints.map(p => new Date(p.date).getTime())
+  const mostRecentDate = new Date(Math.max(...dates))
+  
+  let startDate = new Date(mostRecentDate)
 
   switch (dateRange) {
     case "1 week":
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      startDate.setDate(mostRecentDate.getDate() - 7)
       break
     case "2 weeks":
-      startDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+      startDate.setDate(mostRecentDate.getDate() - 14)
       break
     case "1 month":
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      startDate.setDate(mostRecentDate.getDate() - 30)
       break
     case "3 months":
-      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+      startDate.setDate(mostRecentDate.getDate() - 90)
       break
     case "6 months":
-      startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+      startDate.setDate(mostRecentDate.getDate() - 180)
       break
     case "1 year":
-      startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+      startDate.setFullYear(mostRecentDate.getFullYear() - 1)
       break
     default:
-      // Si no reconoce el rango, devuelve todo
+      // "all" o cualquier otro valor - devolver todo
       return data
   }
 
   const filteredDataPoints = data.dataPoints.filter(point => {
     const pointDate = new Date(point.date)
-    return pointDate >= startDate && pointDate <= now
+    return pointDate >= startDate && pointDate <= mostRecentDate
   })
 
   if (filteredDataPoints.length === 0) {
-    return data // Devolver data original si el filtro no deja nada
+    return data // Si el filtro no deja nada, devolver todo
   }
 
   return {
@@ -83,8 +88,9 @@ function filterByDateRange(data: ParsedDataset, dateRange: string): ParsedDatase
 
 export default function DashboardPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [hasData, setHasData] = useState(false)
-  const [rawData, setRawData] = useState<ParsedDataset | null>(null)
+  const [allData, setAllData] = useState<ParsedDataset[]>([])
   const [activeTab, setActiveTab] = useState<"overview" | "social" | "web">("overview")
   const [platform, setPlatform] = useState("All")
   const [dateRange, setDateRange] = useState("1 month")
@@ -96,6 +102,8 @@ export default function DashboardPage() {
     const tabParam = searchParams.get("tab")
     if (tabParam && ["overview", "social", "web"].includes(tabParam)) {
       setActiveTab(tabParam as "overview" | "social" | "web")
+    } else if (!tabParam) {
+      setActiveTab("overview")
     }
   }, [searchParams])
 
@@ -105,7 +113,7 @@ export default function DashboardPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
-        setRawData(parsed)
+        setAllData([parsed])
         setHasData(true)
       } catch (error) {
         console.error("Failed to load stored data:", error)
@@ -133,11 +141,41 @@ export default function DashboardPage() {
     }
   }
 
-  // Aplicar filtro de fecha a los datos
-  const filteredData = rawData ? filterByDateRange(rawData, dateRange) : null
+  const handleTabChange = (tab: "overview" | "social" | "web") => {
+    setActiveTab(tab)
+    if (tab === "overview") {
+      router.push("/")
+    } else {
+      router.push(`/?tab=${tab}`)
+    }
+  }
 
-  // Blank state cuando no hay datos
-  if (!hasData || !rawData) {
+  // Separar datos por tipo
+  const socialData = allData.length > 0 
+    ? {
+        ...allData[0],
+        dataPoints: allData[0].dataPoints.filter(p => 
+          p.source === 'linkedin' || p.source === 'twitter' || p.source === 'instagram' || p.source === 'tiktok'
+        )
+      }
+    : null
+
+  const webData = allData.length > 0
+    ? {
+        ...allData[0],
+        dataPoints: allData[0].dataPoints.filter(p => p.source === 'google-analytics')
+      }
+    : null
+
+  // Aplicar filtro de fecha solo a datos sociales
+  const filteredSocialData = socialData && socialData.dataPoints.length > 0 
+    ? filterByDateRange(socialData, dateRange) 
+    : null
+
+  // Limpiar webData si no tiene dataPoints
+  const cleanWebData = webData && webData.dataPoints.length > 0 ? webData : null
+
+  if (!hasData || allData.length === 0) {
     return (
       <div className="flex h-screen bg-background overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
@@ -160,7 +198,6 @@ export default function DashboardPage() {
     )
   }
 
-  // Dashboard con datos
   return (
     <PlatformContext.Provider value={{ platform, setPlatform }}>
       <div className="flex h-screen bg-background overflow-hidden">
@@ -181,7 +218,7 @@ export default function DashboardPage() {
             <Toolbar
               onFileUpload={handleFileUpload}
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={handleTabChange}
               platform={platform}
               onPlatformChange={setPlatform}
               dateRange={dateRange}
@@ -192,13 +229,15 @@ export default function DashboardPage() {
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ height: "calc(100vh - 13rem)" }}>
             <div className="px-8 py-8 min-h-full">
-              {activeTab === "overview" && filteredData && (
-                <OverviewTab data={filteredData} platform={platform} dateRange={dateRange} />
+              {activeTab === "overview" && filteredSocialData && (
+                <OverviewTab data={filteredSocialData} platform={platform} dateRange={dateRange} />
               )}
-              {activeTab === "social" && filteredData && (
-                <SocialTab data={filteredData} platform={platform} />
+              {activeTab === "social" && filteredSocialData && (
+                <SocialTab data={filteredSocialData} platform={platform} />
               )}
-              {activeTab === "web" && <WebTab />}
+              {activeTab === "web" && (
+                <WebTab data={cleanWebData} />
+              )}
             </div>
           </div>
 

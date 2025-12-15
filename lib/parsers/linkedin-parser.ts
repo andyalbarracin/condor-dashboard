@@ -1,8 +1,8 @@
 /**
  * File: linkedin-parser.ts
  * Path: /lib/parsers/linkedin-parser.ts
- * Last Modified: 2025-12-07
- * Description: Parser completo LinkedIn CORREGIDO
+ * Last Modified: 2025-12-08
+ * Description: Parser con IDs únicos para evitar duplicados
  */
 
 import * as XLSX from 'xlsx'
@@ -59,20 +59,28 @@ function findColumn(row: any, names: string[]): any {
   return undefined
 }
 
+function generateUniqueId(date: string, title: string, index: number): string {
+  // Limpia el título para usarlo en el ID
+  const cleanTitle = title
+    .substring(0, 30)
+    .replace(/[^a-zA-Z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+  
+  return `linkedin-${date}-${cleanTitle}-${index}`
+}
+
 function detectLinkedInType(sheetNames: string[]): 'content' | 'followers' | 'visitors' | 'unknown' {
   const lower = sheetNames.map(s => s.toLowerCase())
   
-  // Content tiene "Metrics" O "All posts" (son hojas separadas)
   if (lower.some(s => s.includes('metrics')) || lower.some(s => s.includes('all post'))) {
     return 'content'
   }
   
-  // Followers tiene "New followers"
   if (lower.some(s => s.includes('new follower'))) {
     return 'followers'
   }
   
-  // Visitors tiene "Visitor metrics"
   if (lower.some(s => s.includes('visitor'))) {
     return 'visitors'
   }
@@ -119,7 +127,7 @@ function parseContentAnalytics(workbook: XLSX.WorkBook): { dataPoints: Normalize
   })
   
   const allPostSheet = workbook.Sheets['All posts'] || workbook.Sheets['All Posts']
-  let postMap = new Map<string, { title: string; link: string }>()
+  let postMap = new Map<string, Array<{ title: string; link: string }>>()
   
   if (allPostSheet) {
     let allPostRaw: any[] = XLSX.utils.sheet_to_json(allPostSheet, { defval: '', raw: false, header: 1 })
@@ -148,16 +156,20 @@ function parseContentAnalytics(workbook: XLSX.WorkBook): { dataPoints: Normalize
         const date = findColumn(obj, ['Created date', 'Date'])
         if (date) {
           const normalized = parseLinkedInDate(date)
-          postMap.set(normalized, { 
-            title: String(findColumn(obj, ['Post title', 'Title']) || ''), 
-            link: String(findColumn(obj, ['Post link', 'Link']) || '') 
-          })
+          const title = String(findColumn(obj, ['Post title', 'Title']) || '')
+          const link = String(findColumn(obj, ['Post link', 'Link']) || '')
+          
+          if (!postMap.has(normalized)) {
+            postMap.set(normalized, [])
+          }
+          postMap.get(normalized)!.push({ title, link })
         }
       } catch (e) {}
     })
   }
   
   const dataPoints: NormalizedDataPoint[] = []
+  const dateCounter = new Map<string, number>()
   
   for (const row of mainRows) {
     const dateStr = findColumn(row, ['Date', 'date'])
@@ -165,7 +177,13 @@ function parseContentAnalytics(workbook: XLSX.WorkBook): { dataPoints: Normalize
     
     try {
       const normalizedDate = parseLinkedInDate(dateStr)
-      const postInfo = postMap.get(normalizedDate) || { title: '', link: '' }
+      
+      // Contador para manejar múltiples posts en la misma fecha
+      const currentIndex = dateCounter.get(normalizedDate) || 0
+      dateCounter.set(normalizedDate, currentIndex + 1)
+      
+      const postsOnDate = postMap.get(normalizedDate) || []
+      const postInfo = postsOnDate[currentIndex] || { title: '', link: '' }
       
       const impressions = cleanNumber(findColumn(row, ['Impressions (total)', 'Impressions']))
       const impressions_organic = cleanNumber(findColumn(row, ['Impressions (organic)']))
@@ -178,6 +196,7 @@ function parseContentAnalytics(workbook: XLSX.WorkBook): { dataPoints: Normalize
       const engagements = reactions + comments + reposts
       
       dataPoints.push({
+        id: generateUniqueId(normalizedDate, postInfo.title, currentIndex),
         date: normalizedDate,
         source: 'linkedin',
         metrics: {
@@ -233,6 +252,7 @@ function parseFollowersAnalytics(workbook: XLSX.WorkBook): { dataPoints: Normali
       const auto_invited = cleanNumber(findColumn(row, ['Auto-invited followers']))
       
       dataPoints.push({
+        id: `linkedin-followers-${normalizedDate}`,
         date: normalizedDate,
         source: 'linkedin',
         metrics: {
@@ -287,6 +307,7 @@ function parseVisitorsAnalytics(workbook: XLSX.WorkBook): { dataPoints: Normaliz
       const custom_button_clicks = cleanNumber(findColumn(row, ['Custom button clicks (total)', 'Custom button clicks']))
       
       dataPoints.push({
+        id: `linkedin-visitors-${normalizedDate}`,
         date: normalizedDate,
         source: 'linkedin',
         metrics: {
