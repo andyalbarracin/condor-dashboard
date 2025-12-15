@@ -2,7 +2,7 @@
  * File: page.tsx
  * Path: /app/page.tsx
  * Last Modified: 2025-12-09
- * Description: Dashboard con filtro de fecha basado en datos, no en fecha actual
+ * Description: Dashboard con sincronización bidireccional y tipos corregidos
  */
 
 "use client"
@@ -31,13 +31,9 @@ export function usePlatform() {
   return useContext(PlatformContext)
 }
 
-/**
- * Filtra datos por rango de fecha - calculado desde la fecha MÁS RECIENTE de los datos
- */
 function filterByDateRange(data: ParsedDataset, dateRange: string): ParsedDataset {
   if (!data.dataPoints || data.dataPoints.length === 0) return data
   
-  // Encontrar la fecha MÁS RECIENTE en los datos
   const dates = data.dataPoints.map(p => new Date(p.date).getTime())
   const mostRecentDate = new Date(Math.max(...dates))
   
@@ -63,7 +59,6 @@ function filterByDateRange(data: ParsedDataset, dateRange: string): ParsedDatase
       startDate.setFullYear(mostRecentDate.getFullYear() - 1)
       break
     default:
-      // "all" o cualquier otro valor - devolver todo
       return data
   }
 
@@ -73,7 +68,7 @@ function filterByDateRange(data: ParsedDataset, dateRange: string): ParsedDatase
   })
 
   if (filteredDataPoints.length === 0) {
-    return data // Si el filtro no deja nada, devolver todo
+    return data
   }
 
   return {
@@ -97,7 +92,6 @@ export default function DashboardPage() {
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
-  // Sincronizar tab con URL query params
   useEffect(() => {
     const tabParam = searchParams.get("tab")
     if (tabParam && ["overview", "social", "web"].includes(tabParam)) {
@@ -107,7 +101,6 @@ export default function DashboardPage() {
     }
   }, [searchParams])
 
-  // Cargar datos al montar
   useEffect(() => {
     const stored = localStorage.getItem("condor_analytics_data")
     if (stored) {
@@ -150,11 +143,10 @@ export default function DashboardPage() {
     }
   }
 
-  // Separar datos por tipo
   const socialData = allData.length > 0 
     ? {
         ...allData[0],
-        dataPoints: allData[0].dataPoints.filter(p => 
+        dataPoints: allData[0].dataPoints.filter((p) => 
           p.source === 'linkedin' || p.source === 'twitter' || p.source === 'instagram' || p.source === 'tiktok'
         )
       }
@@ -163,16 +155,14 @@ export default function DashboardPage() {
   const webData = allData.length > 0
     ? {
         ...allData[0],
-        dataPoints: allData[0].dataPoints.filter(p => p.source === 'google-analytics')
+        dataPoints: allData[0].dataPoints.filter((p) => p.source === 'google-analytics')
       }
     : null
 
-  // Aplicar filtro de fecha solo a datos sociales
   const filteredSocialData = socialData && socialData.dataPoints.length > 0 
     ? filterByDateRange(socialData, dateRange) 
     : null
 
-  // Limpiar webData si no tiene dataPoints
   const cleanWebData = webData && webData.dataPoints.length > 0 ? webData : null
 
   if (!hasData || allData.length === 0) {
