@@ -1,18 +1,18 @@
-// ACTUAL Parse para CSV en Condor
-// ruta: lib/parsers/csv-parser.ts
+/**
+ * File: csv-parser.ts
+ * Path: /lib/parsers/csv-parser.ts
+ * Last Modified: 2025-12-09
+ * Description: CSV parser con tipos explícitos para TypeScript
+ */
 
- 
+import type { ParserResult, NormalizedDataPoint } from "./types"
 
-import type { ParserResult } from "./types"
-
-// Detect delimiter - usually ; for LinkedIn, , for others
 function detectDelimiter(firstLine: string): string {
   const semiCount = (firstLine.match(/;/g) || []).length
   const commaCount = (firstLine.match(/,/g) || []).length
   return semiCount > commaCount ? ";" : ","
 }
 
-// Parse CSV string into rows and columns
 function parseCSVContent(content: string): string[][] {
   const lines = content.split("\n")
   const delimiter = detectDelimiter(lines[0])
@@ -20,14 +20,12 @@ function parseCSVContent(content: string): string[][] {
   return lines
     .filter((line) => line.trim())
     .map((line) => {
-      // Handle quoted fields
       const fields: string[] = []
       let current = ""
       let inQuotes = false
 
       for (let i = 0; i < line.length; i++) {
         const char = line[i]
-        const nextChar = line[i + 1]
 
         if (char === '"') {
           inQuotes = !inQuotes
@@ -43,24 +41,20 @@ function parseCSVContent(content: string): string[][] {
     })
 }
 
-// Normalize decimal separator (convert , to .)
 function normalizeNumber(value: string): number {
   const normalized = value.replace(",", ".")
   return Number.parseFloat(normalized)
 }
 
-// Parse various date formats
 function parseDate(dateStr: string): string {
   const trimmed = dateStr.replace(/^"|"$/g, "").trim()
 
-  // LinkedIn format: 08/04/2025
   const linkedinMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
   if (linkedinMatch) {
     const [, month, day, year] = linkedinMatch
     return `${year}-${month}-${day}`
   }
 
-  // Twitter format: "Mon, Nov 3, 2025"
   const twitterMatch = trimmed.match(/^[A-Za-z]+,\s+([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})$/)
   if (twitterMatch) {
     const [, monthStr, day, year] = twitterMatch
@@ -68,7 +62,6 @@ function parseDate(dateStr: string): string {
     return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`
   }
 
-  // ISO format: 2025-11-03
   if (trimmed.match(/^\d{4}-\d{2}-\d{2}$/)) {
     return trimmed
   }
@@ -76,7 +69,6 @@ function parseDate(dateStr: string): string {
   throw new Error(`Unable to parse date: ${dateStr}`)
 }
 
-// Detect source based on headers and content
 function detectSource(
   headers: string[],
   firstRow: string[],
@@ -101,7 +93,6 @@ function detectSource(
   return { source: "linkedin", subType: "content" }
 }
 
-// Normalize header names to standard keys
 function normalizeHeaders(headers: string[], source: "linkedin" | "twitter"): Record<string, string> {
   const map: Record<string, string> = {}
 
@@ -180,7 +171,6 @@ function normalizeHeaders(headers: string[], source: "linkedin" | "twitter"): Re
 
 export async function parseCSV(csvContent: string): Promise<ParserResult> {
   try {
-    // Skip empty lines at the start and find actual data
     const lines = csvContent.split("\n").filter((line) => line.trim() && !line.trim().startsWith("Aggregated"))
 
     if (lines.length < 2) {
@@ -214,8 +204,8 @@ export async function parseCSV(csvContent: string): Promise<ParserResult> {
       }
     }
 
-    const dataPoints = dataRows
-      .map((row) => {
+    const dataPoints: NormalizedDataPoint[] = dataRows
+      .map((row: string[]): NormalizedDataPoint | null => {
         const dateStr = row[dateHeaderIndex]
         if (!dateStr || !dateStr.trim()) return null
 
@@ -232,7 +222,6 @@ export async function parseCSV(csvContent: string): Promise<ParserResult> {
             return
           }
 
-          // Try to parse as number
           if (!isNaN(Number.parseFloat(value))) {
             metrics[normalizedKey] = normalizeNumber(value)
           } else {
@@ -246,7 +235,7 @@ export async function parseCSV(csvContent: string): Promise<ParserResult> {
           metrics,
         }
       })
-      .filter((dp): dp is (typeof dataPoints)[0] => dp !== null)
+      .filter((dp): dp is NormalizedDataPoint => dp !== null)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
     if (dataPoints.length === 0) {
@@ -255,8 +244,6 @@ export async function parseCSV(csvContent: string): Promise<ParserResult> {
         error: "No valid data points found after parsing",
       }
     }
-
-    const dates = dataPoints.map((dp) => new Date(dp.date).getTime()).sort((a, b) => a - b)
 
     return {
       success: true,
