@@ -2,7 +2,7 @@
  * File: page.tsx
  * Path: /app/page.tsx
  * Last Modified: 2025-12-09
- * Description: Dashboard con sincronización bidireccional y tipos corregidos
+ * Description: Dashboard principal - export fixed
  */
 
 "use client"
@@ -27,7 +27,8 @@ const PlatformContext = createContext<{
   setPlatform: () => {},
 })
 
-export function usePlatform() {
+// NO EXPORTAR ESTO - solo usar dentro del archivo
+function usePlatform() {
   return useContext(PlatformContext)
 }
 
