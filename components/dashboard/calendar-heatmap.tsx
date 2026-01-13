@@ -1,20 +1,20 @@
 /**
  * File: calendar-heatmap.tsx
  * Path: /components/dashboard/calendar-heatmap.tsx
- * Last Modified: 2025-12-06
- * Description: Calendar heatmap que muestra datos de todas las plataformas
+ * Last Modified: 2025-12-22
+ * Description: Calendar heatmap con drilldown mejorado que pasa posts reales del día seleccionado
  */
 
 "use client"
 
 import { useState } from "react"
-import type { ParsedDataset } from "@/lib/parsers/types"
+import type { ParsedDataset, DataPoint } from "@/lib/parsers/types"
 
 interface CalendarHeatmapProps {
   data: ParsedDataset
   platform: string
   dateRange: string
-  onDateClick?: (dateStr: string, metrics: Record<string, number>) => void
+  onDateClick?: (dateStr: string, posts: DataPoint[]) => void
 }
 
 function normalizePlatform(platform: string): string {
@@ -111,14 +111,22 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
 
   const days = getMonthGrid(currentMonthData.year, currentMonthData.month)
 
-  // Agregar datos por fecha
+  // Agregar datos por fecha Y guardar posts originales
   const values: Record<string, Record<string, number>> = {}
-  filteredData.forEach((r) => {
-    if (!r.date) return
-    const dateStr = r.date
+  const postsByDate: Record<string, DataPoint[]> = {}
+  
+  filteredData.forEach((dataPoint) => {
+    if (!dataPoint.date) return
+    const dateStr = dataPoint.date
+    
+    // Guardar el post completo
+    if (!postsByDate[dateStr]) postsByDate[dateStr] = []
+    postsByDate[dateStr].push(dataPoint)
+    
+    // Agregar métricas para el heatmap
     if (!values[dateStr]) values[dateStr] = {}
-    Object.keys(r.metrics).forEach((key) => {
-      const value = Number(r.metrics[key])
+    Object.keys(dataPoint.metrics).forEach((key) => {
+      const value = Number(dataPoint.metrics[key])
       if (!isNaN(value)) {
         values[dateStr][key] = (values[dateStr][key] || 0) + value
       }
@@ -132,9 +140,11 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
     1
   )
 
-  const handleDateClick = (dateStr: string, dayMetrics: Record<string, number>) => {
-    if (dayMetrics[metric] > 0 && onDateClick) {
-      onDateClick(dateStr, dayMetrics)
+  const handleDateClick = (dateStr: string) => {
+    const postsForDate = postsByDate[dateStr]
+    if (postsForDate && postsForDate.length > 0 && onDateClick) {
+      // Pasar todos los posts de ese día
+      onDateClick(dateStr, postsForDate)
     }
   }
 
@@ -209,8 +219,9 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
           {days.map((dateObj, idx) => {
             const dayStr = formatDate(dateObj)
             const dayMetrics = values[dayStr] || {}
+            const dayPosts = postsByDate[dayStr] || []
             const value = dayMetrics[metric] || 0
-            const hasData = value > 0
+            const hasData = value > 0 && dayPosts.length > 0
             const isCurrentMonth = dateObj.getMonth() === currentMonthData.month
 
             return (
@@ -227,13 +238,14 @@ export function CalendarHeatmap({ data, platform, dateRange, onDateClick }: Cale
                 }}
                 onMouseEnter={() => hasData && setHoveredDate(dayStr)}
                 onMouseLeave={() => setHoveredDate(null)}
-                onClick={() => handleDateClick(dayStr, dayMetrics)}
+                onClick={() => hasData && handleDateClick(dayStr)}
               >
                 {dateObj.getDate()}
 
                 {hoveredDate === dayStr && hasData && (
                   <div className="absolute -top-24 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-slate-800 text-white text-xs rounded-lg p-3 whitespace-nowrap z-50 shadow-lg pointer-events-none border border-slate-700">
                     <div className="font-semibold mb-1">{dayStr}</div>
+                    <div className="text-neutral-300 mb-1">{dayPosts.length} post{dayPosts.length > 1 ? 's' : ''}</div>
                     {Object.entries(dayMetrics)
                       .filter(([_, val]) => typeof val === 'number' && val > 0)
                       .slice(0, 5)

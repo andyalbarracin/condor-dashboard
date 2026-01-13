@@ -1,8 +1,8 @@
 /**
  * File: twitter-parser.ts
  * Path: /lib/parsers/twitter-parser.ts
- * Last Modified: 2025-12-07
- * Description: Parser para X/Twitter con captura de links
+ * Last Modified: 2025-12-22
+ * Description: Parser para X/Twitter que soporta "Post text" Y "Tweet text"
  */
 
 import type { ParserResult, NormalizedDataPoint } from './types'
@@ -56,9 +56,22 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
     
     // Buscar índices de columnas
     const dateIdx = headers.findIndex(h => h.toLowerCase() === 'date')
-    const postIdIdx = headers.findIndex(h => h.toLowerCase().includes('post id'))
-    const postTextIdx = headers.findIndex(h => h.toLowerCase().includes('post text'))
-    const postLinkIdx = headers.findIndex(h => h.toLowerCase().includes('post link'))
+    
+    // ✅ BUSCAR "post" O "tweet" en id/text/link
+    const idIdx = headers.findIndex(h => {
+      const lower = h.toLowerCase()
+      return lower.includes('post id') || lower.includes('tweet id')
+    })
+    
+    const textIdx = headers.findIndex(h => {
+      const lower = h.toLowerCase()
+      return lower.includes('post text') || lower.includes('tweet text')
+    })
+    
+    const linkIdx = headers.findIndex(h => {
+      const lower = h.toLowerCase()
+      return lower.includes('post link') || lower.includes('tweet link')
+    })
     
     if (dateIdx === -1) {
       return {
@@ -120,9 +133,9 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
         const permalink_clicks = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'permalink clicks')])
         
         const metrics: Record<string, number | string> = {
-          post_id: postIdIdx !== -1 ? fields[postIdIdx] : '',
-          title: postTextIdx !== -1 ? fields[postTextIdx] : '',
-          link: postLinkIdx !== -1 ? fields[postLinkIdx] : '', // ← CAPTURANDO EL LINK
+          post_id: idIdx !== -1 ? fields[idIdx] : '',
+          title: textIdx !== -1 ? fields[textIdx] : '',
+          link: linkIdx !== -1 ? fields[linkIdx] : '',
           impressions,
           likes,
           reactions: likes,
