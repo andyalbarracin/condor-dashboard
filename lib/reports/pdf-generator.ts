@@ -1,14 +1,15 @@
 /**
  * File: pdf-generator.ts
  * Path: /lib/reports/pdf-generator.ts
- * Last Modified: 2025-12-08
- * Description: PDF Generator - CORREGIDO
+ * Last Modified: 2026-01-19
+ * Description: PDF Generator ARREGLADO - Avg Engagements NO es porcentaje
  */
 
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { ParsedDataset } from '@/lib/parsers/types'
-import type { BenchmarkComparison } from './benchmark-calculator'
+//import type { BenchmarkComparison } from './benchmark-calculator'
+import type { BenchmarkComparison } from '@/lib/reports/benchmark-calculator'
 
 interface ReportData {
   linkedinComparisons: BenchmarkComparison[]
@@ -81,9 +82,21 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
       
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Your Performance: ${(comp.actual * 100).toFixed(2)}%`, 30, yPos)
-      yPos += 5
-      doc.text(`Industry Average: ${(comp.benchmark * 100).toFixed(2)}%`, 30, yPos)
+      
+      // ✅ ARREGLO: Detectar si es "Avg Engagements"
+      const isAvgEngagements = comp.kpi.includes('Avg Engagements')
+      
+      if (isAvgEngagements) {
+        // NO multiplicar por 100
+        doc.text(`Your Performance: ${comp.actual.toFixed(2)}`, 30, yPos)
+        yPos += 5
+        doc.text(`Industry Average: ${comp.benchmark.toFixed(2)}`, 30, yPos)
+      } else {
+        // Sí multiplicar por 100 (es un porcentaje)
+        doc.text(`Your Performance: ${(comp.actual * 100).toFixed(2)}%`, 30, yPos)
+        yPos += 5
+        doc.text(`Industry Average: ${(comp.benchmark * 100).toFixed(2)}%`, 30, yPos)
+      }
       yPos += 5
       
       doc.setFont('helvetica', 'bold')
@@ -129,9 +142,21 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
       
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Your Performance: ${(comp.actual * 100).toFixed(2)}%`, 30, yPos)
-      yPos += 5
-      doc.text(`Industry Average: ${(comp.benchmark * 100).toFixed(2)}%`, 30, yPos)
+      
+      // ✅ ARREGLO: Detectar si es "Avg Engagements"
+      const isAvgEngagements = comp.kpi.includes('Avg Engagements')
+      
+      if (isAvgEngagements) {
+        // NO multiplicar por 100
+        doc.text(`Your Performance: ${comp.actual.toFixed(2)}`, 30, yPos)
+        yPos += 5
+        doc.text(`Industry Average: ${comp.benchmark.toFixed(2)}`, 30, yPos)
+      } else {
+        // Sí multiplicar por 100 (es un porcentaje)
+        doc.text(`Your Performance: ${(comp.actual * 100).toFixed(2)}%`, 30, yPos)
+        yPos += 5
+        doc.text(`Industry Average: ${(comp.benchmark * 100).toFixed(2)}%`, 30, yPos)
+      }
       yPos += 5
       
       doc.setFont('helvetica', 'bold')

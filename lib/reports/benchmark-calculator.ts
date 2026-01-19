@@ -44,6 +44,9 @@ function getUserIndustry(): string {
   return stored || benchmarksData.default_industry
 }
 
+
+
+
 // NUEVA FUNCIÓN: Obtener KPIs de la industria
 function getIndustryKPIs(industryKey: string) {
   const industries = benchmarksData.industries as Record<string, any>

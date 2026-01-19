@@ -19,7 +19,8 @@ import {
   generateAllComparisons, 
   generateRecommendations, 
   extractPlatformMetrics 
-} from "@/lib/reports/benchmark-calculator"
+} from "../../lib/reports/benchmark-calculator"
+
 import type { ParsedDataset } from "@/lib/parsers/types"
 import { FileText, TrendingUp, Target, Award, ChevronUp, ChevronDown, HelpCircle } from "lucide-react"
 import { 
@@ -583,7 +584,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-3">
-                    {recommendations.map((rec, idx) => (
+                    {recommendations.map((rec: string, idx: number) => (
                       <li key={idx} className="flex gap-3">
                         <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
                           {idx + 1}
