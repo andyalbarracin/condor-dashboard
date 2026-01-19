@@ -1,8 +1,8 @@
 /**
  * File: social-tab.tsx
  * Path: /components/dashboard/social-tab.tsx
- * Last Modified: 2025-12-08
- * Description: Social tab COMPLETO con todas las funcionalidades
+ * Last Modified: 2025-12-22
+ * Description: Social tab con PostDrilldown arreglado
  */
 
 "use client"
@@ -16,7 +16,7 @@ import { PostDrilldown } from "./post-drilldown"
 import { DemographicCard } from "./demographic-card"
 import { FollowersChart } from "./followers-chart"
 import { BarChart3, Eye, MousePointerClick, TrendingUp, MapPin, Briefcase, Users, Building2, Award } from "lucide-react"
-import type { ParsedDataset } from "@/lib/parsers/types"
+import type { ParsedDataset, DataPoint } from "@/lib/parsers/types"
 
 interface SocialTabProps {
   data: ParsedDataset
@@ -122,8 +122,10 @@ function extractFollowersTimeSeries(data: ParsedDataset | null | undefined) {
 }
 
 export function SocialTab({ data, platform, followersData, visitorsData }: SocialTabProps) {
+  // ✅ NUEVO: Estado para PostDrilldown
   const [drilldownOpen, setDrilldownOpen] = useState(false)
-  const [selectedPost, setSelectedPost] = useState<any>(null)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedPosts, setSelectedPosts] = useState<DataPoint[]>([])
   
   const kpis = calculateKPIs(data, platform)
   
@@ -141,27 +143,17 @@ export function SocialTab({ data, platform, followersData, visitorsData }: Socia
   
   const followersTimeSeries = extractFollowersTimeSeries(followersData)
   
-  const handleDateClick = (dateStr: string, metrics: Record<string, number>) => {
-    const post = data.dataPoints.find(p => p.date === dateStr)
-    if (post) {
-      setSelectedPost({
-        id: post.id,
-        title: String(post.metrics.title || '(No title)'),
-        content: String(post.metrics.content || ''),
-        link: String(post.metrics.link || ''),
-        date: post.date,
-        source: post.source,
-        impressions: Number(post.metrics.impressions || 0),
-        engagements: Number(post.metrics.engagements || 0),
-        reactions: Number(post.metrics.reactions || 0),
-        comments: Number(post.metrics.comments || 0),
-        shares: Number(post.metrics.reposts || post.metrics.shares || 0),
-        clicks: Number(post.metrics.clicks || 0),
-        engagement_rate: Number(post.metrics.engagement_rate || 0),
-        followers_gained: metrics.new_followers || undefined,
-      })
-      setDrilldownOpen(true)
-    }
+  // ✅ NUEVO: Handler que recibe DataPoint[]
+  const handleDateClick = (dateStr: string, posts: DataPoint[]) => {
+    setSelectedDate(dateStr)
+    setSelectedPosts(posts)
+    setDrilldownOpen(true)
+  }
+
+  const handleCloseDrilldown = () => {
+    setDrilldownOpen(false)
+    setSelectedDate(null)
+    setSelectedPosts([])
   }
 
   const hasFollowersData = followersLocation.length > 0 || followersTimeSeries.length > 0
@@ -336,10 +328,12 @@ export function SocialTab({ data, platform, followersData, visitorsData }: Socia
         </div>
       )}
       
+      {/* ✅ NUEVO PostDrilldown */}
       <PostDrilldown
         open={drilldownOpen}
-        post={selectedPost}
-        onClose={() => setDrilldownOpen(false)}
+        dateStr={selectedDate}
+        posts={selectedPosts}
+        onClose={handleCloseDrilldown}
       />
     </div>
   )

@@ -1,18 +1,20 @@
 /**
  * File: overview-tab.tsx
  * Path: /components/dashboard/overview-tab.tsx
- * Last Modified: 2025-12-06
- * Description: Overview con KPIs dinámicos según tipo de datos disponibles
+ * Last Modified: 2025-12-22
+ * Description: Overview con KPIs dinámicos y PostDrilldown agregado
  */
 
 "use client"
 
+import { useState } from "react"
 import { KPICard } from "./kpi-card"
 import { CalendarHeatmap } from "./calendar-heatmap"
 import { PlatformBreakdownPie } from "@/components/dashboard/platform-breakdown-pie"
 import { TopContentTab } from "./top-content-tab"
+import { PostDrilldown } from "./post-drilldown"
 import { BarChart3, Eye, MousePointerClick, TrendingUp, Users, UserPlus } from "lucide-react"
-import type { ParsedDataset } from "@/lib/parsers/types"
+import type { ParsedDataset, DataPoint } from "@/lib/parsers/types"
 
 interface OverviewTabProps {
   data: ParsedDataset
@@ -194,12 +196,30 @@ function formatNumber(num: number): string {
 }
 
 export function OverviewTab({ data, platform, dateRange }: OverviewTabProps) {
+  // ✅ NUEVO: Estado para PostDrilldown
+  const [drilldownOpen, setDrilldownOpen] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedPosts, setSelectedPosts] = useState<DataPoint[]>([])
+
   const availableMetrics = detectAvailableMetrics(data)
   
   // Calcular KPIs según tipo de datos disponibles
   const contentKPIs = availableMetrics.hasContent ? calculateContentKPIs(data, platform) : null
   const followersKPIs = availableMetrics.hasFollowers ? calculateFollowersKPIs(data, platform) : null
   const visitorsKPIs = availableMetrics.hasVisitors ? calculateVisitorsKPIs(data, platform) : null
+
+  // ✅ NUEVO: Handler para clicks en el calendario
+  const handleDateClick = (dateStr: string, posts: DataPoint[]) => {
+    setSelectedDate(dateStr)
+    setSelectedPosts(posts)
+    setDrilldownOpen(true)
+  }
+
+  const handleCloseDrilldown = () => {
+    setDrilldownOpen(false)
+    setSelectedDate(null)
+    setSelectedPosts([])
+  }
 
   return (
     <div className="space-y-6">
@@ -246,7 +266,12 @@ export function OverviewTab({ data, platform, dateRange }: OverviewTabProps) {
             </div>
             
             <div className="lg:col-span-3">
-              <CalendarHeatmap data={data} platform={platform} dateRange={dateRange} />
+              <CalendarHeatmap 
+                data={data} 
+                platform={platform} 
+                dateRange={dateRange}
+                onDateClick={handleDateClick}
+              />
             </div>
           </div>
 
@@ -333,6 +358,14 @@ export function OverviewTab({ data, platform, dateRange }: OverviewTabProps) {
           <p className="text-neutral-500">No metrics available to display</p>
         </div>
       )}
+
+      {/* ✅ NUEVO: PostDrilldown */}
+      <PostDrilldown
+        open={drilldownOpen}
+        dateStr={selectedDate}
+        posts={selectedPosts}
+        onClose={handleCloseDrilldown}
+      />
     </div>
   )
 }

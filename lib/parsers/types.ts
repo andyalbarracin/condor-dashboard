@@ -1,16 +1,20 @@
 /**
  * File: types.ts
  * Path: /lib/parsers/types.ts
- * Last Modified: 2025-12-08
- * Description: Types con ID único para evitar duplicados
+ * Last Modified: 2025-12-22
+ * Description: Types con ID único para evitar duplicados y alias DataPoint
  */
 
 export interface NormalizedDataPoint {
-  id?: string // NUEVO: ID único para evitar duplicados por fecha
+  id?: string // ID único para evitar duplicados por fecha
   date: string
   source: "linkedin" | "twitter" | "instagram" | "tiktok" | "google-analytics"
   metrics: Record<string, number | string>
+  metadata?: Record<string, any> // ✅ NUEVO: Para guardar title, content, link
 }
+
+// ✅ NUEVO: Alias para simplificar imports
+export type DataPoint = NormalizedDataPoint
 
 export interface ParsedDataset {
   source: "linkedin" | "twitter" | "instagram" | "tiktok" | "google-analytics"

@@ -26,6 +26,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
 } from 'recharts'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ExportTableButton } from "@/components/reports/export-table-button" // ← AGREGAR
+
 
 const COLORS = {
   linkedin: '#0a66c2',
@@ -595,23 +597,32 @@ export default function ReportsPage() {
             
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Top Content Performance</CardTitle>
-                    <CardDescription>Best performing posts ranked by engagement</CardDescription>
-                  </div>
-                  <select
-                    value={rowsPerPage}
-                    onChange={(e) => setRowsPerPage(Number(e.target.value))}
-                    className="px-3 py-1.5 border border-border rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value={20}>Show 20</option>
-                    <option value={30}>Show 30</option>
-                    <option value={50}>Show 50</option>
-                    <option value={999}>Show All</option>
-                  </select>
-                </div>
-              </CardHeader>
+  <div className="flex items-center justify-between">
+    <div>
+      <CardTitle>Top Content Performance</CardTitle>
+      <CardDescription>Best performing posts ranked by engagement</CardDescription>
+    </div>
+    <div className="flex items-center gap-2">
+      <ExportTableButton 
+  data={topContent} 
+  filename={`top-content-${platform.toLowerCase()}-${dateRange.replace(' ', '-')}`}
+  dateRange={dateRange}
+  platform={platform}
+  disabled={topContent.length === 0}
+/>
+      <select
+        value={rowsPerPage}
+        onChange={(e) => setRowsPerPage(Number(e.target.value))}
+        className="px-3 py-1.5 border border-border rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+      >
+        <option value={20}>Show 20</option>
+        <option value={30}>Show 30</option>
+        <option value={50}>Show 50</option>
+        <option value={999}>Show All</option>
+      </select>
+    </div>
+  </div>
+</CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
