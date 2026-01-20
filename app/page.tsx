@@ -1,13 +1,13 @@
 /**
  * File: page.tsx
  * Path: /app/page.tsx
- * Last Modified: 2025-12-09
- * Description: Dashboard principal - export fixed
+ * Last Modified: 2026-01-20
+ * Description: Dashboard principal - Fixed Suspense boundary for useSearchParams
  */
 
 "use client"
 
-import { useState, useEffect, createContext, useContext } from "react"
+import { useState, useEffect, createContext, useContext, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
@@ -27,7 +27,6 @@ const PlatformContext = createContext<{
   setPlatform: () => {},
 })
 
-// NO EXPORTAR ESTO - solo usar dentro del archivo
 function usePlatform() {
   return useContext(PlatformContext)
 }
@@ -82,16 +81,15 @@ function filterByDateRange(data: ParsedDataset, dateRange: string): ParsedDatase
   }
 }
 
-export default function DashboardPage() {
+// Componente que usa useSearchParams - DEBE estar en Suspense
+function SearchParamsHandler({
+  activeTab,
+  setActiveTab,
+}: {
+  activeTab: string
+  setActiveTab: (tab: "overview" | "social" | "web") => void
+}) {
   const searchParams = useSearchParams()
-  const router = useRouter()
-  const [hasData, setHasData] = useState(false)
-  const [allData, setAllData] = useState<ParsedDataset[]>([])
-  const [activeTab, setActiveTab] = useState<"overview" | "social" | "web">("overview")
-  const [platform, setPlatform] = useState("All")
-  const [dateRange, setDateRange] = useState("1 month")
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
-  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
     const tabParam = searchParams.get("tab")
@@ -100,7 +98,20 @@ export default function DashboardPage() {
     } else if (!tabParam) {
       setActiveTab("overview")
     }
-  }, [searchParams])
+  }, [searchParams, setActiveTab])
+
+  return null
+}
+
+function DashboardContent() {
+  const router = useRouter()
+  const [hasData, setHasData] = useState(false)
+  const [allData, setAllData] = useState<ParsedDataset[]>([])
+  const [activeTab, setActiveTab] = useState<"overview" | "social" | "web">("overview")
+  const [platform, setPlatform] = useState("All")
+  const [dateRange, setDateRange] = useState("1 month")
+  const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
     const stored = localStorage.getItem("condor_analytics_data")
@@ -191,6 +202,10 @@ export default function DashboardPage() {
 
   return (
     <PlatformContext.Provider value={{ platform, setPlatform }}>
+      <Suspense fallback={null}>
+        <SearchParamsHandler activeTab={activeTab} setActiveTab={setActiveTab} />
+      </Suspense>
+      
       <div className="flex h-screen bg-background overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
@@ -238,5 +253,13 @@ export default function DashboardPage() {
         </main>
       </div>
     </PlatformContext.Provider>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
   )
 }
