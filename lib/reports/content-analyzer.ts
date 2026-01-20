@@ -2,25 +2,10 @@
  * File: content-analyzer.ts
  * Path: /lib/reports/content-analyzer.ts
  * Last Modified: 2026-01-19
- * Description: Analiza patrones en content - COMPATIBLE con estructura dataPoints
+ * Description: Analiza patrones - CORREGIDO para metrics Record<string, string | number>
  */
 
-interface DataPoint {
-  id: string
-  source: 'linkedin' | 'twitter'
-  date: string
-  title: string
-  metrics: {
-    impressions?: number
-    engagements?: number
-    clicks?: number
-    engagement_rate?: number
-    reactions?: number
-    comments?: number
-    shares?: number
-    reposts?: number
-  }
-}
+import type { NormalizedDataPoint } from '@/lib/parsers/types'
 
 interface ContentPattern {
   name: string
@@ -42,15 +27,22 @@ interface DayPerformance {
 export interface ContentAnalysis {
   patterns: ContentPattern[]
   best_posting_days: DayPerformance[]
-  top_performing_posts: DataPoint[]
+  top_performing_posts: NormalizedDataPoint[]
   content_type_recommendations: string[]
   specific_tactics: string[]
 }
 
 /**
+ * Obtiene el texto del post desde metrics
+ */
+function getPostText(post: NormalizedDataPoint): string {
+  return String(post.metrics.title || post.metrics.text || post.metrics.content || '')
+}
+
+/**
  * Analiza los posts y encuentra patrones de contenido exitoso
  */
-export function analyzeContentPatterns(dataPoints: DataPoint[]): ContentAnalysis {
+export function analyzeContentPatterns(dataPoints: NormalizedDataPoint[]): ContentAnalysis {
   if (dataPoints.length === 0) {
     return {
       patterns: [],
@@ -66,9 +58,10 @@ export function analyzeContentPatterns(dataPoints: DataPoint[]): ContentAnalysis
     let rate = Number(p.metrics.engagement_rate || 0)
     
     // Si engagement_rate no existe, calcularlo
-    if (!rate && p.metrics.impressions && p.metrics.impressions > 0) {
+    const impressions = Number(p.metrics.impressions || 0)
+    if (!rate && impressions > 0) {
       const eng = Number(p.metrics.engagements || 0)
-      rate = (eng / p.metrics.impressions) * 100
+      rate = (eng / impressions) * 100
     }
     
     // Si rate está en decimal (0.0715), convertir a porcentaje
@@ -78,7 +71,8 @@ export function analyzeContentPatterns(dataPoints: DataPoint[]): ContentAnalysis
     
     return {
       ...p,
-      calculated_engagement_rate: rate
+      calculated_engagement_rate: rate,
+      post_text: getPostText(p)
     }
   })
 
@@ -90,7 +84,7 @@ export function analyzeContentPatterns(dataPoints: DataPoint[]): ContentAnalysis
     .sort((a, b) => b.calculated_engagement_rate - a.calculated_engagement_rate)
     .slice(0, 10)
     .map(p => {
-      const { calculated_engagement_rate, ...original } = p
+      const { calculated_engagement_rate, post_text, ...original } = p
       return original
     })
 
@@ -99,13 +93,13 @@ export function analyzeContentPatterns(dataPoints: DataPoint[]): ContentAnalysis
 
   // PATRÓN 1: Posts con preguntas
   const questionPosts = postsWithRate.filter(p => {
-    const title = p.title.toLowerCase()
-    return title.includes('?') || 
-           title.includes('how ') || 
-           title.includes('what ') || 
-           title.includes('where ') ||
-           title.includes('when ') ||
-           title.includes('why ')
+    const text = p.post_text.toLowerCase()
+    return text.includes('?') || 
+           text.includes('how ') || 
+           text.includes('what ') || 
+           text.includes('where ') ||
+           text.includes('when ') ||
+           text.includes('why ')
   })
   
   if (questionPosts.length >= 3) {
@@ -121,14 +115,13 @@ export function analyzeContentPatterns(dataPoints: DataPoint[]): ContentAnalysis
       examples: questionPosts
         .sort((a, b) => b.calculated_engagement_rate - a.calculated_engagement_rate)
         .slice(0, 3)
-        .map(p => p.title.substring(0, 60))
+        .map(p => p.post_text.substring(0, 60))
     })
   }
 
   // PATRÓN 2: Call-to-Action directo
   const ctaPosts = postsWithRate.filter(p => {
-    const title = p.title
-    return /^(Stop|Start|Think|Track|Reduce|Improve|Boost|Increase|Learn|Discover|See)/i.test(title)
+    return /^(Stop|Start|Think|Track|Reduce|Improve|Boost|Increase|Learn|Discover|See)/i.test(p.post_text)
   })
   
   if (ctaPosts.length >= 3) {
@@ -144,20 +137,20 @@ export function analyzeContentPatterns(dataPoints: DataPoint[]): ContentAnalysis
       examples: ctaPosts
         .sort((a, b) => b.calculated_engagement_rate - a.calculated_engagement_rate)
         .slice(0, 3)
-        .map(p => p.title.substring(0, 60))
+        .map(p => p.post_text.substring(0, 60))
     })
   }
 
   // PATRÓN 3: Posts sobre problemas/riesgos
   const problemPosts = postsWithRate.filter(p => {
-    const title = p.title.toLowerCase()
-    return title.includes('fail') || 
-           title.includes('risk') || 
-           title.includes('leak') ||
-           title.includes('waste') ||
-           title.includes('dead') ||
-           title.includes('problem') ||
-           title.includes('issue')
+    const text = p.post_text.toLowerCase()
+    return text.includes('fail') || 
+           text.includes('risk') || 
+           text.includes('leak') ||
+           text.includes('waste') ||
+           text.includes('dead') ||
+           text.includes('problem') ||
+           text.includes('issue')
   })
   
   if (problemPosts.length >= 3) {
@@ -174,21 +167,21 @@ export function analyzeContentPatterns(dataPoints: DataPoint[]): ContentAnalysis
         examples: problemPosts
           .sort((a, b) => b.calculated_engagement_rate - a.calculated_engagement_rate)
           .slice(0, 3)
-          .map(p => p.title.substring(0, 60))
+          .map(p => p.post_text.substring(0, 60))
       })
     }
   }
 
   // PATRÓN 4: Posts técnicos específicos
   const technicalPosts = postsWithRate.filter(p => {
-    const title = p.title.toLowerCase()
-    return title.includes('how to') ||
-           title.includes('monitoring') ||
-           title.includes('data') ||
-           title.includes('control') ||
-           title.includes('autonomous') ||
-           title.includes('edge') ||
-           title.includes('site')
+    const text = p.post_text.toLowerCase()
+    return text.includes('how to') ||
+           text.includes('monitoring') ||
+           text.includes('data') ||
+           text.includes('control') ||
+           text.includes('autonomous') ||
+           text.includes('edge') ||
+           text.includes('site')
   })
   
   if (technicalPosts.length >= 3) {
@@ -205,7 +198,7 @@ export function analyzeContentPatterns(dataPoints: DataPoint[]): ContentAnalysis
         examples: technicalPosts
           .sort((a, b) => b.calculated_engagement_rate - a.calculated_engagement_rate)
           .slice(0, 3)
-          .map(p => p.title.substring(0, 60))
+          .map(p => p.post_text.substring(0, 60))
       })
     }
   }
@@ -254,10 +247,9 @@ function analyzeBestPostingDays(postsWithRate: any[]): DayPerformance[] {
         is_best_day: false
       }
     })
-    .filter(d => d.post_count >= 2) // Solo días con al menos 2 posts
+    .filter(d => d.post_count >= 2)
     .sort((a, b) => b.avg_engagement_rate - a.avg_engagement_rate)
 
-  // Marcar el mejor día
   if (dayPerformances.length > 0) {
     dayPerformances[0].is_best_day = true
   }
@@ -271,15 +263,13 @@ function analyzeBestPostingDays(postsWithRate: any[]): DayPerformance[] {
 function generateSmartRecommendations(
   patterns: ContentPattern[],
   dayPerformance: DayPerformance[],
-  topPosts: DataPoint[]
+  topPosts: NormalizedDataPoint[]
 ): { content_types: string[], tactics: string[] } {
   const contentTypes: string[] = []
   const tactics: string[] = []
 
-  // Ordenar patrones por mejora
   const sortedPatterns = [...patterns].sort((a, b) => b.improvement_vs_avg - a.improvement_vs_avg)
 
-  // Recomendar basado en los mejores patrones
   sortedPatterns.forEach((pattern, idx) => {
     if (idx === 0 && pattern.improvement_vs_avg > 10) {
       contentTypes.push(
@@ -298,7 +288,6 @@ function generateSmartRecommendations(
     }
   })
 
-  // Mejor día para postear
   if (dayPerformance.length > 0) {
     const bestDay = dayPerformance[0]
     tactics.push(
@@ -307,21 +296,20 @@ function generateSmartRecommendations(
     )
   }
 
-  // Analizar top posts para más insights
   if (topPosts.length > 0) {
     const topPost = topPosts[0]
     const avgClicks = topPosts.reduce((sum, p) => sum + Number(p.metrics.clicks || 0), 0) / topPosts.length
     const topClicks = Number(topPost.metrics.clicks || 0)
     
     if (topClicks > avgClicks * 2) {
+      const postText = getPostText(topPost)
       tactics.push(
-        `High-CTR posts like "${topPost.title.substring(0, 40)}..." generate ${topClicks} clicks. ` +
+        `High-CTR posts like "${postText.substring(0, 40)}..." generate ${topClicks} clicks. ` +
         `Include clear value propositions and specific benefits.`
       )
     }
   }
 
-  // Si no hay suficientes patrones, dar recomendaciones genéricas
   if (contentTypes.length === 0) {
     contentTypes.push(
       'Experiment with question-based headlines to increase engagement',
