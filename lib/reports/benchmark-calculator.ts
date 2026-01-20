@@ -1,12 +1,13 @@
 /**
  * File: benchmark-calculator.ts
  * Path: /lib/reports/benchmark-calculator.ts
- * Last Modified: 2025-12-08
- * Description: Multi-industry benchmark support
+ * Last Modified: 2026-01-19
+ * Description: Multi-industry benchmark + Intelligent Recommendations - CORREGIDO
  */
 
 import type { ParsedDataset } from '@/lib/parsers/types'
 import benchmarksData from '@/data/benchmarks.json'
+import { analyzeContentPatterns } from './content-analyzer'
 
 export interface BenchmarkComparison {
   kpi: string
@@ -37,17 +38,21 @@ export interface PlatformMetrics {
   commentRate: number
 }
 
-// NUEVA FUNCIÓN: Obtener industria del usuario (por ahora hardcoded, después desde DB)
+export interface IntelligentRecommendation {
+  priority: 'high' | 'medium' | 'low'
+  category: 'content_type' | 'posting_schedule' | 'engagement_tactics' | 'improvement'
+  title: string
+  description: string
+  data_source: string
+  actionable_steps?: string[]
+}
+
 function getUserIndustry(): string {
-  // TODO: Obtener de localStorage o DB cuando tengamos onboarding
+  if (typeof window === 'undefined') return benchmarksData.default_industry
   const stored = localStorage.getItem('condor_user_industry')
   return stored || benchmarksData.default_industry
 }
 
-
-
-
-// NUEVA FUNCIÓN: Obtener KPIs de la industria
 function getIndustryKPIs(industryKey: string) {
   const industries = benchmarksData.industries as Record<string, any>
   return industries[industryKey] || industries[benchmarksData.default_industry]
@@ -286,7 +291,111 @@ export function generateRecommendations(comparisons: BenchmarkComparison[]): str
   return recommendations
 }
 
-// NUEVA FUNCIÓN: Get available industries
+export function generateIntelligentRecommendations(
+  data: ParsedDataset,
+  comparisons: BenchmarkComparison[]
+): IntelligentRecommendation[] {
+  const recommendations: IntelligentRecommendation[] = []
+
+  const linkedinPosts = data.dataPoints.filter(p => p.source === 'linkedin')
+  
+  if (linkedinPosts.length < 3) {
+    return []
+  }
+
+  const contentAnalysis = analyzeContentPatterns(linkedinPosts)
+
+  if (contentAnalysis.patterns.length > 0) {
+    const topPattern = contentAnalysis.patterns[0]
+    
+    recommendations.push({
+      priority: 'high',
+      category: 'content_type',
+      title: `${topPattern.name} performs ${topPattern.improvement_vs_avg.toFixed(0)}% better`,
+      description: `Your ${topPattern.name.toLowerCase()} posts generate significantly higher engagement. ` +
+        `Example: "${topPattern.examples[0]}"`,
+      data_source: `Based on ${topPattern.posts_matching} posts with ${topPattern.avg_engagement_rate.toFixed(1)}% avg engagement rate`,
+      actionable_steps: [
+        `Create 2-3 more ${topPattern.name.toLowerCase()} posts per week`,
+        `Use similar framing to your top post: "${topPattern.examples[0].substring(0, 50)}..."`,
+        `Test variations of this format to find what resonates most`
+      ]
+    })
+  }
+
+  if (contentAnalysis.best_posting_days.length > 0) {
+    const bestDay = contentAnalysis.best_posting_days[0]
+    const worstDay = contentAnalysis.best_posting_days[contentAnalysis.best_posting_days.length - 1]
+    
+    recommendations.push({
+      priority: 'high',
+      category: 'posting_schedule',
+      title: `Post on ${bestDay.day}s for ${bestDay.avg_engagement_rate.toFixed(1)}% engagement`,
+      description: `${bestDay.day}s outperform ${worstDay.day}s by ${((bestDay.avg_engagement_rate / worstDay.avg_engagement_rate - 1) * 100).toFixed(0)}%. ` +
+        `Schedule your most important content for ${bestDay.day}s.`,
+      data_source: `Based on ${bestDay.post_count} ${bestDay.day} posts`,
+      actionable_steps: [
+        `Schedule 60% of posts on ${bestDay.day}s`,
+        `Post your highest-value content on ${bestDay.day} mornings`,
+        `Avoid posting on ${worstDay.day}s unless necessary`
+      ]
+    })
+  }
+
+  comparisons.forEach(comp => {
+    if (comp.status === 'below' && comp.gap > 0) {
+      const isAvgEngagements = comp.kpi.includes('Avg Engagements')
+      
+      if (isAvgEngagements) {
+        recommendations.push({
+          priority: 'medium',
+          category: 'improvement',
+          title: `Boost ${comp.kpi} to ${comp.benchmark.toFixed(0)} engagements`,
+          description: `Currently at ${comp.actual.toFixed(1)} engagements per post. ` +
+            `Need ${comp.gap.toFixed(1)} more engagements per post to reach industry average.`,
+          data_source: `Industry benchmark: ${comp.benchmark} engagements`,
+          actionable_steps: [
+            'Add clear CTAs to each post (ask questions, invite comments)',
+            'Tag relevant people/companies to increase visibility',
+            'Use engaging formats: carousels, documents, or polls',
+            'Respond to every comment within 2 hours to boost algorithm'
+          ]
+        })
+      } else if (comp.gapPercentage > 10) {
+        recommendations.push({
+          priority: 'medium',
+          category: 'improvement',
+          title: `Improve ${comp.kpi} by ${Math.abs(comp.gapPercentage).toFixed(0)}%`,
+          description: `Current: ${(comp.actual * 100).toFixed(2)}%, Target: ${(comp.benchmark * 100).toFixed(2)}%`,
+          data_source: `Industry benchmark`,
+          actionable_steps: [
+            'Focus on audience pain points and challenges',
+            'Share actionable insights, not just product features',
+            'Include data/statistics to add credibility'
+          ]
+        })
+      }
+    }
+  })
+
+  if (contentAnalysis.specific_tactics.length > 0) {
+    contentAnalysis.specific_tactics.forEach(tactic => {
+      recommendations.push({
+        priority: 'low',
+        category: 'engagement_tactics',
+        title: 'Data-driven tactic',
+        description: tactic,
+        data_source: 'Top performing posts analysis'
+      })
+    })
+  }
+
+  const priorityOrder = { high: 0, medium: 1, low: 2 }
+  recommendations.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
+
+  return recommendations.slice(0, 8)
+}
+
 export function getAvailableIndustries() {
   const industries = benchmarksData.industries as Record<string, any>
   return Object.entries(industries).map(([key, data]) => ({

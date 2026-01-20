@@ -1,20 +1,19 @@
 /**
  * File: pdf-generator.ts
  * Path: /lib/reports/pdf-generator.ts
- * Last Modified: 2026-01-19
- * Description: PDF Generator ARREGLADO - Avg Engagements NO es porcentaje
+ * Last Modified: 2026-01-20
+ * Description: PDF Generator con RECOMENDACIONES INTELIGENTES
  */
 
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { ParsedDataset } from '@/lib/parsers/types'
-//import type { BenchmarkComparison } from './benchmark-calculator'
-import type { BenchmarkComparison } from '@/lib/reports/benchmark-calculator'
+import type { BenchmarkComparison, IntelligentRecommendation } from './benchmark-calculator'
 
 interface ReportData {
   linkedinComparisons: BenchmarkComparison[]
   twitterComparisons: BenchmarkComparison[]
-  recommendations: string[]
+  recommendations: IntelligentRecommendation[]  // ← CAMBIO: de string[] a IntelligentRecommendation[]
   topContent: any[]
   dateRange: { start: string; end: string }
 }
@@ -46,7 +45,7 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
   doc.setFontSize(28)
   doc.setFont('helvetica', 'bold')
   const pageWidth = doc.internal.pageSize.width
-  doc.text('Analytics Report', pageWidth / 2, yPos, { align: 'center' })
+  doc.text('Condor Analytics Report', pageWidth / 2, yPos, { align: 'center' })
   
   yPos += 15
   doc.setFontSize(14)
@@ -178,31 +177,83 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
     yPos += 5
   }
   
-  // Recommendations
+  // ✨ NUEVA SECCIÓN: Intelligent Recommendations
   if (reportData.recommendations.length > 0) {
-    if (yPos > 220) {
-      doc.addPage()
-      yPos = 20
-    }
+    doc.addPage()
+    yPos = 20
     
     doc.setFillColor(42, 95, 74)
     doc.rect(20, yPos - 5, pageWidth - 40, 10, 'F')
     doc.setTextColor(255, 255, 255)
     doc.setFontSize(14)
     doc.setFont('helvetica', 'bold')
-    doc.text('Recommendations', 25, yPos + 2)
-    yPos += 12
+    doc.text('Intelligent Recommendations', 25, yPos + 2)
+    yPos += 15
     doc.setTextColor(0, 0, 0)
     
     reportData.recommendations.forEach((rec, idx) => {
+      // Priority badge
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      if (rec.priority === 'high') {
+        doc.setFillColor(239, 68, 68)
+      } else if (rec.priority === 'medium') {
+        doc.setFillColor(234, 179, 8)
+      } else {
+        doc.setFillColor(59, 130, 246)
+      }
+      doc.roundedRect(25, yPos - 3, 18, 6, 2, 2, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.text(rec.priority.toUpperCase(), 27, yPos + 1)
+      yPos += 8
+      
+      // Title
+      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      const titleLines = doc.splitTextToSize(`${idx + 1}. ${rec.title}`, 160)
+      doc.text(titleLines, 25, yPos)
+      yPos += titleLines.length * 5 + 2
+      
+      // Description
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
-      const cleanRec = cleanText(rec)
-      const lines = doc.splitTextToSize(`${idx + 1}. ${cleanRec}`, 160)
-      doc.text(lines, 25, yPos)
-      yPos += lines.length * 5 + 3
+      const descLines = doc.splitTextToSize(cleanText(rec.description), 160)
+      doc.text(descLines, 25, yPos)
+      yPos += descLines.length * 4 + 2
       
-      if (yPos > 270) {
+      // Data source
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'italic')
+      doc.setTextColor(100, 100, 100)
+      const sourceLines = doc.splitTextToSize(`Source: ${rec.data_source}`, 160)
+      doc.text(sourceLines, 25, yPos)
+      yPos += sourceLines.length * 4 + 4
+      
+      // Actionable steps
+      if (rec.actionable_steps && rec.actionable_steps.length > 0) {
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        doc.text('Actionable Steps:', 25, yPos)
+        yPos += 5
+        
+        doc.setFont('helvetica', 'normal')
+        rec.actionable_steps.forEach((step) => {
+          const stepLines = doc.splitTextToSize(`• ${cleanText(step)}`, 155)
+          doc.text(stepLines, 30, yPos)
+          yPos += stepLines.length * 4 + 1
+          
+          if (yPos > 270) {
+            doc.addPage()
+            yPos = 20
+          }
+        })
+      }
+      
+      yPos += 8
+      
+      if (yPos > 250) {
         doc.addPage()
         yPos = 20
       }
@@ -290,7 +341,7 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
     doc.setFontSize(8)
     doc.setTextColor(150, 150, 150)
     doc.text(
-      `Page ${i} | Analytics Hub`, 
+      `Page ${i} | Condor Analytics`, 
       pageWidth / 2, 
       doc.internal.pageSize.height - 10, 
       { align: 'center' }

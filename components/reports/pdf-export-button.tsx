@@ -1,8 +1,8 @@
 /**
  * File: pdf-export-button.tsx
  * Path: /components/reports/pdf-export-button.tsx
- * Last Modified: 2025-12-07
- * Description: Botón para exportar reporte a PDF
+ * Last Modified: 2026-01-20
+ * Description: Botón para exportar reporte a PDF - ACTUALIZADO para recomendaciones inteligentes
  */
 
 "use client"
@@ -11,13 +11,13 @@ import { useState } from "react"
 import { Download, Loader2 } from "lucide-react"
 import { generatePDF } from "@/lib/reports/pdf-generator"
 import type { ParsedDataset } from "@/lib/parsers/types"
-import type { BenchmarkComparison } from "@/lib/reports/benchmark-calculator"
+import type { BenchmarkComparison, IntelligentRecommendation } from "@/lib/reports/benchmark-calculator"
 
 interface PDFExportButtonProps {
   data: ParsedDataset
   linkedinComparisons: BenchmarkComparison[]
   twitterComparisons: BenchmarkComparison[]
-  recommendations: string[]
+  recommendations: IntelligentRecommendation[]  // ← CAMBIO: de string[] a IntelligentRecommendation[]
   topContent: any[]
 }
 

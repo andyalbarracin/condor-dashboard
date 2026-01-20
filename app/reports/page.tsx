@@ -1,9 +1,8 @@
-
 /**
  * File: page.tsx
  * Path: /app/reports/page.tsx
- * Last Modified: 2025-12-08
- * Description: Reports CORREGIDO - IDs únicos, grid responsive
+ * Last Modified: 2026-01-20
+ * Description: Reports con RECOMENDACIONES INTELIGENTES ACTIVADAS
  */
 
 "use client"
@@ -17,8 +16,10 @@ import { BenchmarkComparisonCard } from "@/components/reports/benchmark-comparis
 import { PDFExportButton } from "@/components/reports/pdf-export-button"
 import { 
   generateAllComparisons, 
-  generateRecommendations, 
-  extractPlatformMetrics 
+  generateRecommendations,
+  generateIntelligentRecommendations,
+  extractPlatformMetrics,
+  type IntelligentRecommendation
 } from "../../lib/reports/benchmark-calculator"
 
 import type { ParsedDataset } from "@/lib/parsers/types"
@@ -28,7 +29,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer 
 } from 'recharts'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { ExportTableButton } from "@/components/reports/export-table-button" // ← AGREGAR
+import { ExportTableButton } from "@/components/reports/export-table-button"
 
 
 const COLORS = {
@@ -115,11 +116,11 @@ export default function ReportsPage() {
     return generateAllComparisons(filteredData)
   }, [filteredData])
   
-  const recommendations = useMemo(() => {
-    if (!comparisons) return []
+  const intelligentRecommendations = useMemo(() => {
+    if (!comparisons || !filteredData) return []
     const allComparisons = [...comparisons.linkedin, ...comparisons.twitter]
-    return generateRecommendations(allComparisons)
-  }, [comparisons])
+    return generateIntelligentRecommendations(filteredData, allComparisons)
+  }, [comparisons, filteredData])
   
   const linkedinMetrics = useMemo(() => {
     if (!filteredData) return null
@@ -207,7 +208,7 @@ export default function ReportsPage() {
         }
         
         return {
-          id: p.id || `${p.date}-${p.source}-${index}`, // USAR ID ÚNICO
+          id: p.id || `${p.date}-${p.source}-${index}`,
           title: String(p.metrics.title),
           source: p.source,
           date: p.date,
@@ -257,6 +258,15 @@ export default function ReportsPage() {
       case 'average': return 'bg-yellow-500/20 text-yellow-500'
       case 'below': return 'bg-red-500/20 text-red-500'
       default: return 'bg-neutral-500/20 text-neutral-500'
+    }
+  }
+  
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'bg-red-500/20 text-red-500 border-red-500/30'
+      case 'medium': return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30'
+      case 'low': return 'bg-blue-500/20 text-blue-500 border-blue-500/30'
+      default: return 'bg-neutral-500/20 text-neutral-500 border-neutral-500/30'
     }
   }
   
@@ -350,7 +360,7 @@ export default function ReportsPage() {
                   data={filteredData}
                   linkedinComparisons={comparisons?.linkedin || []}
                   twitterComparisons={comparisons?.twitter || []}
-                  recommendations={recommendations}
+                  recommendations={intelligentRecommendations}
                   topContent={topContent}
                 />
               </div>
@@ -547,7 +557,6 @@ export default function ReportsPage() {
               </Card>
             )}
             
-            {/* GRID RESPONSIVE PARA CARDS DE BENCHMARKS */}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
               {comparisons && linkedinMetrics && linkedinMetrics.totalPosts > 0 && (
                 <BenchmarkComparisonCard
@@ -572,59 +581,93 @@ export default function ReportsPage() {
                   }
                 />
               )}
-              
-              {/* FUTURO: Agregar más plataformas aquí (YouTube, TikTok, etc.) */}
             </div>
             
-            {recommendations.length > 0 && (
+            {intelligentRecommendations.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Recommendations</CardTitle>
-                  <CardDescription>Actionable insights to improve performance</CardDescription>
+                  <CardTitle>Intelligent Recommendations</CardTitle>
+                  <CardDescription>Data-driven insights to improve performance</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3">
-                    {recommendations.map((rec: string, idx: number) => (
-                      <li key={idx} className="flex gap-3">
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
-                          {idx + 1}
-                        </span>
-                        <p className="text-sm text-foreground">{rec}</p>
-                      </li>
+                  <div className="space-y-4">
+                    {intelligentRecommendations.map((rec: IntelligentRecommendation, idx: number) => (
+                      <div 
+                        key={idx} 
+                        className={`border-2 rounded-lg p-4 ${getPriorityColor(rec.priority)}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                            rec.priority === 'high' ? 'bg-red-500 text-white' :
+                            rec.priority === 'medium' ? 'bg-yellow-500 text-white' :
+                            'bg-blue-500 text-white'
+                          }`}>
+                            {idx + 1}
+                          </span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-bold text-base">{rec.title}</h4>
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${
+                                rec.priority === 'high' ? 'bg-red-500 text-white' :
+                                rec.priority === 'medium' ? 'bg-yellow-500 text-white' :
+                                'bg-blue-500 text-white'
+                              }`}>
+                                {rec.priority}
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground mb-2">{rec.description}</p>
+                            <p className="text-xs text-neutral-500 italic mb-3">{rec.data_source}</p>
+                            
+                            {rec.actionable_steps && rec.actionable_steps.length > 0 && (
+                              <div className="mt-3">
+                                <p className="text-xs font-semibold text-neutral-600 mb-1">Actionable Steps:</p>
+                                <ul className="space-y-1">
+                                  {rec.actionable_steps.map((step: string, stepIdx: number) => (
+                                    <li key={stepIdx} className="text-xs text-neutral-700 flex gap-2">
+                                      <span className="text-primary">•</span>
+                                      <span>{step}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </CardContent>
               </Card>
             )}
             
             <Card>
               <CardHeader>
-  <div className="flex items-center justify-between">
-    <div>
-      <CardTitle>Top Content Performance</CardTitle>
-      <CardDescription>Best performing posts ranked by engagement</CardDescription>
-    </div>
-    <div className="flex items-center gap-2">
-      <ExportTableButton 
-  data={topContent} 
-  filename={`top-content-${platform.toLowerCase()}-${dateRange.replace(' ', '-')}`}
-  dateRange={dateRange}
-  platform={platform}
-  disabled={topContent.length === 0}
-/>
-      <select
-        value={rowsPerPage}
-        onChange={(e) => setRowsPerPage(Number(e.target.value))}
-        className="px-3 py-1.5 border border-border rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-      >
-        <option value={20}>Show 20</option>
-        <option value={30}>Show 30</option>
-        <option value={50}>Show 50</option>
-        <option value={999}>Show All</option>
-      </select>
-    </div>
-  </div>
-</CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Top Content Performance</CardTitle>
+                    <CardDescription>Best performing posts ranked by engagement</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ExportTableButton 
+                      data={topContent} 
+                      filename={`top-content-${platform.toLowerCase()}-${dateRange.replace(' ', '-')}`}
+                      dateRange={dateRange}
+                      platform={platform}
+                      disabled={topContent.length === 0}
+                    />
+                    <select
+                      value={rowsPerPage}
+                      onChange={(e) => setRowsPerPage(Number(e.target.value))}
+                      className="px-3 py-1.5 border border-border rounded-lg bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value={20}>Show 20</option>
+                      <option value={30}>Show 30</option>
+                      <option value={50}>Show 50</option>
+                      <option value={999}>Show All</option>
+                    </select>
+                  </div>
+                </div>
+              </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
