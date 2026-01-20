@@ -35,6 +35,7 @@ export async function updateSession(request: NextRequest) {
           })
 
           // Recreate response to attach cookies correctly
+          //probar
           supabaseResponse = NextResponse.next({
             request,
           })
