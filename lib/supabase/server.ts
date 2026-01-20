@@ -1,3 +1,10 @@
+/**
+ * File: server.ts
+ * Path: /lib/supabase/server.ts
+ * Last Modified: 2026-01-20
+ * Description: Cliente de Supabase para Server Components - Maneja autenticación y sesiones del lado del servidor
+ */
+
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
