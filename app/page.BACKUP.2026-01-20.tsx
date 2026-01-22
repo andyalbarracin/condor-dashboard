@@ -2,7 +2,7 @@
  * File: page.tsx
  * Path: /app/page.tsx
  * Last Modified: 2026-01-20
- * Description: Dashboard principal con sidebar persistente
+ * Description: Dashboard principal - Fixed Suspense boundary for useSearchParams
  */
 
 "use client"
@@ -17,7 +17,6 @@ import { BlankState } from "@/components/dashboard/blank-state"
 import { OverviewTab } from "@/components/dashboard/overview-tab"
 import { SocialTab } from "@/components/dashboard/social-tab"
 import { WebTab } from "@/components/dashboard/web-tab"
-import { useSidebarState } from "@/lib/hooks/useSidebarState"
 import type { ParsedDataset } from "@/lib/parsers/types"
 
 const PlatformContext = createContext<{
@@ -112,7 +111,7 @@ function DashboardContent() {
   const [platform, setPlatform] = useState("All")
   const [dateRange, setDateRange] = useState("1 month")
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
-  const [sidebarOpen, setSidebarOpen] = useSidebarState()  // ← CAMBIO: hook global
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
     const stored = localStorage.getItem("condor_analytics_data")
