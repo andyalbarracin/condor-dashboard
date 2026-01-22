@@ -1,13 +1,13 @@
 /**
  * File: sidebar.tsx
  * Path: /components/layout/sidebar.tsx
- * Last Modified: 2026-01-20
- * Description: Sidebar con Suspense para useSearchParams
+ * Last Modified: 2025-12-09
+ * Description: Sidebar con sincronización perfecta de tabs
  */
 
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { Home, BarChart3, Settings, FileUp, Zap, Menu, X, FileText } from "lucide-react"
@@ -17,8 +17,8 @@ interface SidebarProps {
   onToggle: () => void
 }
 
-// Componente que usa useSearchParams - DEBE estar en Suspense
-function SidebarNav({ pathname }: { pathname: string }) {
+export function Sidebar({ isOpen, onToggle }: SidebarProps) {
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const [mounted, setMounted] = useState(false)
 
@@ -40,51 +40,24 @@ function SidebarNav({ pathname }: { pathname: string }) {
     
     const currentTab = searchParams.get("tab")
     
+    // Dashboard - activo cuando estamos en "/" sin tab o con tab=overview
     if (href === "/") {
       return pathname === "/" && (!currentTab || currentTab === "overview")
     }
     
+    // Social - activo cuando tab=social
     if (href === "/?tab=social") {
       return pathname === "/" && currentTab === "social"
     }
     
+    // Web - activo cuando tab=web
     if (href === "/?tab=web") {
       return pathname === "/" && currentTab === "web"
     }
     
+    // Otras rutas
     return pathname === href
   }
-
-  return (
-    <>
-      {navItems.map((item) => {
-        const active = isActive(item.href)
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-neutral-400 hover:bg-accent hover:text-foreground"
-            }`}
-          >
-            <item.icon
-              className={`w-5 h-5 flex-shrink-0 transition-colors ${
-                active ? "text-primary-foreground" : "group-hover:text-foreground"
-              }`}
-            />
-            <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>
-          </Link>
-        )
-      })}
-    </>
-  )
-}
-
-export function Sidebar({ isOpen, onToggle }: SidebarProps) {
-  const pathname = usePathname()
 
   return (
     <aside
@@ -111,9 +84,29 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       </div>
 
       <nav className="space-y-2 flex-1 px-3">
-        <Suspense fallback={null}>
-          <SidebarNav pathname={pathname} />
-        </Suspense>
+        {navItems.map((item) => {
+          const active = isActive(item.href)
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-neutral-400 hover:bg-accent hover:text-foreground"
+              }`}
+              title={!isOpen ? item.label : undefined}
+            >
+              <item.icon
+                className={`w-5 h-5 flex-shrink-0 transition-colors ${
+                  active ? "text-primary-foreground" : "group-hover:text-foreground"
+                }`}
+              />
+              {isOpen && <span className="text-sm font-medium whitespace-nowrap">{item.label}</span>}
+            </Link>
+          )
+        })}
       </nav>
 
       <div className="p-3 border-t border-border">
