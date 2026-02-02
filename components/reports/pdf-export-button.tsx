@@ -1,8 +1,8 @@
 /**
  * File: pdf-export-button.tsx
  * Path: /components/reports/pdf-export-button.tsx
- * Last Modified: 2026-01-20
- * Description: Botón para exportar reporte a PDF - ACTUALIZADO para recomendaciones inteligentes
+ * Last Modified: 2026-02-02
+ * Description: Botón para exportar reporte a PDF con followers stats
  */
 
 "use client"
@@ -17,8 +17,18 @@ interface PDFExportButtonProps {
   data: ParsedDataset
   linkedinComparisons: BenchmarkComparison[]
   twitterComparisons: BenchmarkComparison[]
-  recommendations: IntelligentRecommendation[]  // ← CAMBIO: de string[] a IntelligentRecommendation[]
+  recommendations: IntelligentRecommendation[]
   topContent: any[]
+  followersStats?: {  // ⭐ NUEVO
+    totalGained: number
+    organicGained: number
+    sponsoredGained: number
+    startCount: number
+    endCount: number
+    startDate: string
+    endDate: string
+    growthRate: number
+  } | null
 }
 
 export function PDFExportButton({ 
@@ -26,7 +36,8 @@ export function PDFExportButton({
   linkedinComparisons, 
   twitterComparisons, 
   recommendations,
-  topContent 
+  topContent,
+  followersStats  // ⭐ NUEVO
 }: PDFExportButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false)
   
@@ -34,7 +45,6 @@ export function PDFExportButton({
     setIsGenerating(true)
     
     try {
-      // Pequeño delay para feedback visual
       await new Promise(resolve => setTimeout(resolve, 500))
       
       generatePDF(data, {
@@ -42,6 +52,7 @@ export function PDFExportButton({
         twitterComparisons,
         recommendations,
         topContent,
+        followersStats,  // ⭐ NUEVO
         dateRange: data.dateRange,
       })
     } catch (error) {

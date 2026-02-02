@@ -1,8 +1,8 @@
 /**
  * File: pdf-generator.ts
  * Path: /lib/reports/pdf-generator.ts
- * Last Modified: 2026-01-20
- * Description: PDF Generator con RECOMENDACIONES INTELIGENTES
+ * Last Modified: 2026-02-02
+ * Description: PDF Generator con Followers Growth Analysis
  */
 
 import jsPDF from 'jspdf'
@@ -13,8 +13,18 @@ import type { BenchmarkComparison, IntelligentRecommendation } from './benchmark
 interface ReportData {
   linkedinComparisons: BenchmarkComparison[]
   twitterComparisons: BenchmarkComparison[]
-  recommendations: IntelligentRecommendation[]  // ← CAMBIO: de string[] a IntelligentRecommendation[]
+  recommendations: IntelligentRecommendation[]
   topContent: any[]
+  followersStats?: {  // ⭐ NUEVO
+    totalGained: number
+    organicGained: number
+    sponsoredGained: number
+    startCount: number
+    endCount: number
+    startDate: string
+    endDate: string
+    growthRate: number
+  } | null
   dateRange: { start: string; end: string }
 }
 
@@ -62,8 +72,14 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
   yPos += 20
   doc.setTextColor(0, 0, 0)
   
+  
   // LinkedIn Section
   if (reportData.linkedinComparisons.length > 0) {
+    if (yPos > 200) {
+      doc.addPage()
+      yPos = 20
+    }
+    
     doc.setFillColor(10, 102, 194)
     doc.rect(20, yPos - 5, pageWidth - 40, 10, 'F')
     doc.setTextColor(255, 255, 255)
@@ -82,16 +98,13 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
       
-      // ✅ ARREGLO: Detectar si es "Avg Engagements"
       const isAvgEngagements = comp.kpi.includes('Avg Engagements')
       
       if (isAvgEngagements) {
-        // NO multiplicar por 100
         doc.text(`Your Performance: ${comp.actual.toFixed(2)}`, 30, yPos)
         yPos += 5
         doc.text(`Industry Average: ${comp.benchmark.toFixed(2)}`, 30, yPos)
       } else {
-        // Sí multiplicar por 100 (es un porcentaje)
         doc.text(`Your Performance: ${(comp.actual * 100).toFixed(2)}%`, 30, yPos)
         yPos += 5
         doc.text(`Industry Average: ${(comp.benchmark * 100).toFixed(2)}%`, 30, yPos)
@@ -142,16 +155,13 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
       
-      // ✅ ARREGLO: Detectar si es "Avg Engagements"
       const isAvgEngagements = comp.kpi.includes('Avg Engagements')
       
       if (isAvgEngagements) {
-        // NO multiplicar por 100
         doc.text(`Your Performance: ${comp.actual.toFixed(2)}`, 30, yPos)
         yPos += 5
         doc.text(`Industry Average: ${comp.benchmark.toFixed(2)}`, 30, yPos)
       } else {
-        // Sí multiplicar por 100 (es un porcentaje)
         doc.text(`Your Performance: ${(comp.actual * 100).toFixed(2)}%`, 30, yPos)
         yPos += 5
         doc.text(`Industry Average: ${(comp.benchmark * 100).toFixed(2)}%`, 30, yPos)
@@ -176,8 +186,111 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
     
     yPos += 5
   }
+
+
+    // ⭐ NUEVA SECCIÓN: Followers Growth Analysis
+  if (reportData.followersStats && reportData.followersStats.totalGained > 0) {
+    if (yPos > 200) {
+      doc.addPage()
+      yPos = 20
+    }
+    
+    doc.setFillColor(42, 95, 74)
+    doc.rect(20, yPos - 5, pageWidth - 40, 10, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Followers Growth Analysis', 25, yPos + 2)
+    yPos += 15
+    doc.setTextColor(0, 0, 0)
+    
+    const stats = reportData.followersStats
+    
+    // Descripción principal
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    const summaryText = `You gained ${stats.totalGained.toLocaleString()} new followers between ${new Date(stats.startDate).toLocaleDateString()} and ${new Date(stats.endDate).toLocaleDateString()}.`
+    const summaryLines = doc.splitTextToSize(summaryText, 160)
+    doc.text(summaryLines, 25, yPos)
+    yPos += summaryLines.length * 5 + 8
+    
+    // Box de Total Followers
+    doc.setFillColor(240, 240, 240)
+    doc.roundedRect(25, yPos, 50, 25, 3, 3, 'F')
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 100, 100)
+    doc.text('TOTAL FOLLOWERS', 27, yPos + 5)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text(stats.endCount.toLocaleString(), 27, yPos + 14)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    if (stats.startCount > 0) {
+      doc.text(`from ${stats.startCount.toLocaleString()} (+${((stats.totalGained / stats.startCount) * 100).toFixed(1)}%)`, 27, yPos + 20)
+    } else {
+      doc.text('New followers gained', 27, yPos + 20)
+    }
+    
+    // Box de Organic
+    doc.setFillColor(34, 197, 94, 0.1 * 255)
+    doc.roundedRect(80, yPos, 50, 25, 3, 3, 'F')
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(34, 197, 94)
+    doc.text('ORGANIC', 82, yPos + 5)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text(stats.organicGained.toLocaleString(), 82, yPos + 14)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    if (stats.totalGained > 0) {
+      doc.text(`${((stats.organicGained / stats.totalGained) * 100).toFixed(0)}% of total growth`, 82, yPos + 20)
+    } else {
+      doc.text('0% of total', 82, yPos + 20)
+    }
+    
+    // Box de Sponsored
+    doc.setFillColor(59, 130, 246, 0.1 * 255)
+    doc.roundedRect(135, yPos, 50, 25, 3, 3, 'F')
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(59, 130, 246)
+    doc.text('SPONSORED', 137, yPos + 5)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text(stats.sponsoredGained.toLocaleString(), 137, yPos + 14)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    if (stats.totalGained > 0) {
+      doc.text(`${((stats.sponsoredGained / stats.totalGained) * 100).toFixed(0)}% of total growth`, 137, yPos + 20)
+    } else {
+      doc.text('0% of total', 137, yPos + 20)
+    }
+    
+    yPos += 30
+    
+    // Growth Rate (si existe)
+    if (stats.startCount > 0) {
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(100, 100, 100)
+      doc.text('Growth rate in this period:', 25, yPos)
+      doc.setFontSize(14)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(42, 95, 74)
+      doc.text(`${stats.growthRate > 0 ? '+' : ''}${stats.growthRate.toFixed(1)}%`, 90, yPos)
+      yPos += 8
+    }
+    
+    yPos += 10
+    doc.setTextColor(0, 0, 0)
+  }
   
-  // ✨ NUEVA SECCIÓN: Intelligent Recommendations
+  
+  // Intelligent Recommendations
   if (reportData.recommendations.length > 0) {
     doc.addPage()
     yPos = 20
@@ -192,7 +305,6 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
     doc.setTextColor(0, 0, 0)
     
     reportData.recommendations.forEach((rec, idx) => {
-      // Priority badge
       doc.setFontSize(8)
       doc.setFont('helvetica', 'bold')
       if (rec.priority === 'high') {
@@ -207,7 +319,6 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
       doc.text(rec.priority.toUpperCase(), 27, yPos + 1)
       yPos += 8
       
-      // Title
       doc.setTextColor(0, 0, 0)
       doc.setFontSize(11)
       doc.setFont('helvetica', 'bold')
@@ -215,14 +326,12 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
       doc.text(titleLines, 25, yPos)
       yPos += titleLines.length * 5 + 2
       
-      // Description
       doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
       const descLines = doc.splitTextToSize(cleanText(rec.description), 160)
       doc.text(descLines, 25, yPos)
       yPos += descLines.length * 4 + 2
       
-      // Data source
       doc.setFontSize(8)
       doc.setFont('helvetica', 'italic')
       doc.setTextColor(100, 100, 100)
@@ -230,7 +339,6 @@ export function generatePDF(data: ParsedDataset, reportData: ReportData): void {
       doc.text(sourceLines, 25, yPos)
       yPos += sourceLines.length * 4 + 4
       
-      // Actionable steps
       if (rec.actionable_steps && rec.actionable_steps.length > 0) {
         doc.setFontSize(9)
         doc.setFont('helvetica', 'bold')

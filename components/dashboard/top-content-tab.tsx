@@ -1,8 +1,8 @@
 /**
  * File: top-content-tab.tsx
  * Path: /components/dashboard/top-content-tab.tsx
- * Last Modified: 2025-12-09
- * Description: Top Content con filtro correcto y row picker funcionando
+ * Last Modified: 2026-02-02
+ * Description: Top Content sin columna de Followers
  */
 
 "use client"
@@ -41,10 +41,10 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
     
     // FILTRAR posts válidos (con título/texto Y con impresiones)
     const validPosts = filteredPoints.filter(p => {
-  // Solo verificar que tenga ALGO de contenido
-  const hasContent = p.metrics.title || p.metrics.content || p.metrics.post_text
-  return hasContent && hasContent.toString().trim().length > 0
-})
+      // Solo verificar que tenga ALGO de contenido
+      const hasContent = p.metrics.title || p.metrics.content || p.metrics.post_text
+      return hasContent && hasContent.toString().trim().length > 0
+    })
     
     // Mapear a formato de post
     let posts = validPosts.map((p, index) => {
@@ -67,7 +67,6 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
         comments: Number(p.metrics.comments || 0),
         shares: Number(p.metrics.reposts || p.metrics.shares || 0),
         engagement_rate: engRate,
-        followers_gained: Number(p.metrics.new_followers || 0),
       }
     })
     
@@ -209,15 +208,6 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
                     {sortBy === "engagement_rate" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
                   </div>
                 </th>
-                <th 
-                  onClick={() => handleSort("followers_gained")}
-                  className="text-right py-3 px-4 font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors"
-                >
-                  <div className="flex items-center justify-end gap-2">
-                    Followers
-                    {sortBy === "followers_gained" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
-                  </div>
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -258,13 +248,6 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
                   <td className="py-3 px-4 text-right text-neutral-400">{post.comments.toLocaleString()}</td>
                   <td className="py-3 px-4 text-right text-neutral-400">{post.shares.toLocaleString()}</td>
                   <td className="py-3 px-4 text-right text-neutral-400">{post.engagement_rate.toFixed(2)}%</td>
-                  <td className="py-3 px-4 text-right text-neutral-400">
-                    {post.followers_gained > 0 ? (
-                      <span className="text-green-500 font-semibold">+{post.followers_gained}</span>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
                 </tr>
               ))}
             </tbody>

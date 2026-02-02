@@ -1,8 +1,8 @@
 /**
  * File: page.tsx
  * Path: /app/reports/page.tsx
- * Last Modified: 2026-01-23
- * Description: Reports con sidebar persistente entre páginas
+ * Last Modified: 2026-02-02
+ * Description: Reports con multi-dataset support y followers growth analysis
  */
 
 "use client"
@@ -14,6 +14,7 @@ import { Footer } from "@/components/layout/footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BenchmarkComparisonCard } from "@/components/reports/benchmark-comparison"
 import { PDFExportButton } from "@/components/reports/pdf-export-button"
+import { FollowersGrowthCard } from "@/components/dashboard/followers-growth-card"
 import { 
   generateAllComparisons, 
   generateRecommendations,
@@ -24,6 +25,7 @@ import {
 import { useSidebarState } from "@/lib/hooks/useSidebarState"
 
 import type { ParsedDataset } from "@/lib/parsers/types"
+import { isMultiDataset, type MultiDataset } from "@/lib/parsers/types"
 import { FileText, TrendingUp, Target, Award, ChevronUp, ChevronDown, HelpCircle } from "lucide-react"
 import { 
   LineChart, Line, PieChart, Pie, Cell,
@@ -44,8 +46,9 @@ const COLORS = {
 }
 
 export default function ReportsPage() {
-  const [sidebarOpen, setSidebarOpen] = useSidebarState()  // ← CAMBIO: hook global
+  const [sidebarOpen, setSidebarOpen] = useSidebarState()
   const [data, setData] = useState<ParsedDataset | null>(null)
+  const [followersData, setFollowersData] = useState<ParsedDataset | null>(null)
   const [platform, setPlatform] = useState<string>("All")
   const [dateRange, setDateRange] = useState<string>("3 months")
   const [sortBy, setSortBy] = useState<string>("engagements")
@@ -56,12 +59,88 @@ export default function ReportsPage() {
     const stored = localStorage.getItem("condor_analytics_data")
     if (stored) {
       try {
-        setData(JSON.parse(stored))
+        const parsed = JSON.parse(stored)
+        
+        if (isMultiDataset(parsed)) {
+          const multi = parsed as MultiDataset
+          
+          // Usar content para reports
+          if (multi.content) {
+            setData(multi.content)
+          }
+          
+          // Cargar followers data
+          if (multi.followers) {
+            setFollowersData(multi.followers)
+          }
+        } else {
+          // Formato viejo (backward compatibility)
+          setData(parsed)
+        }
       } catch (error) {
         console.error('Error loading data:', error)
       }
     }
   }, [])
+
+  // Calcular stats de followers para el período filtrado
+  const followersStats = useMemo(() => {
+    if (!followersData) return null
+    
+    const now = new Date()
+    let startDate = new Date()
+    
+    switch (dateRange) {
+      case "1 week":
+        startDate.setDate(now.getDate() - 7)
+        break
+      case "2 weeks":
+        startDate.setDate(now.getDate() - 14)
+        break
+      case "1 month":
+        startDate.setDate(now.getDate() - 30)
+        break
+      case "3 months":
+        startDate.setDate(now.getDate() - 90)
+        break
+      case "6 months":
+        startDate.setDate(now.getDate() - 180)
+        break
+      case "1 year":
+        startDate.setFullYear(now.getFullYear() - 1)
+        break
+      default:
+        startDate = new Date(0)
+    }
+    
+    const filteredFollowers = followersData.dataPoints.filter(point => {
+      const pointDate = new Date(point.date)
+      return pointDate >= startDate && pointDate <= now
+    })
+    
+    if (filteredFollowers.length === 0) return null
+    
+    const totalGained = filteredFollowers.reduce((sum, d) => 
+      sum + Number(d.metrics.total_followers || 0), 0
+    )
+    const organicGained = filteredFollowers.reduce((sum, d) => 
+      sum + Number(d.metrics.organic_followers || 0), 0
+    )
+    const sponsoredGained = filteredFollowers.reduce((sum, d) => 
+      sum + Number(d.metrics.sponsored_followers || 0), 0
+    )
+    
+    return {
+      totalGained,
+      organicGained,
+      sponsoredGained,
+      startCount: 0,
+      endCount: totalGained,
+      startDate: filteredFollowers[0].date,
+      endDate: filteredFollowers[filteredFollowers.length - 1].date,
+      growthRate: 0
+    }
+  }, [followersData, dateRange])
   
   const filteredData = useMemo(() => {
     if (!data) return null
@@ -363,6 +442,9 @@ export default function ReportsPage() {
                   twitterComparisons={comparisons?.twitter || []}
                   recommendations={intelligentRecommendations}
                   topContent={topContent}
+                  followersStats={followersStats}  // ⭐ AGREGAR ESTA LÍNEA
+
+                  
                 />
               </div>
             </div>
@@ -434,6 +516,20 @@ export default function ReportsPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* ⭐ NUEVO: Followers Growth Card */}
+            {followersStats && (
+              <FollowersGrowthCard
+                totalGained={followersStats.totalGained}
+                organicGained={followersStats.organicGained}
+                sponsoredGained={followersStats.sponsoredGained}
+                startCount={followersStats.startCount}
+                endCount={followersStats.endCount}
+                startDate={followersStats.startDate}
+                endDate={followersStats.endDate}
+                growthRate={followersStats.growthRate}
+              />
+            )}
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>

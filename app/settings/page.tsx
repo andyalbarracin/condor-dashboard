@@ -1,7 +1,7 @@
 /**
  * File: page.tsx
  * Path: /app/settings/page.tsx
- * Last Modified: 2026-01-20
+ * Last Modified: 2026-01-23
  * Description: Settings page con sidebar persistente entre páginas
  */
 

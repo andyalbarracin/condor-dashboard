@@ -1,8 +1,8 @@
 /**
  * File: page.tsx
  * Path: /app/page.tsx
- * Last Modified: 2026-01-20
- * Description: Dashboard principal con sidebar persistente
+ * Last Modified: 2026-02-02
+ * Description: Dashboard principal con multi-dataset support y date range
  */
 
 "use client"
@@ -19,6 +19,7 @@ import { SocialTab } from "@/components/dashboard/social-tab"
 import { WebTab } from "@/components/dashboard/web-tab"
 import { useSidebarState } from "@/lib/hooks/useSidebarState"
 import type { ParsedDataset } from "@/lib/parsers/types"
+import { isMultiDataset, type MultiDataset } from "@/lib/parsers/types"
 
 const PlatformContext = createContext<{
   platform: string
@@ -108,19 +109,39 @@ function DashboardContent() {
   const router = useRouter()
   const [hasData, setHasData] = useState(false)
   const [allData, setAllData] = useState<ParsedDataset[]>([])
+  const [followersData, setFollowersData] = useState<ParsedDataset | null>(null)
+  const [visitorsData, setVisitorsData] = useState<ParsedDataset | null>(null)
   const [activeTab, setActiveTab] = useState<"overview" | "social" | "web">("overview")
   const [platform, setPlatform] = useState("All")
   const [dateRange, setDateRange] = useState("1 month")
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
-  const [sidebarOpen, setSidebarOpen] = useSidebarState()  // ← CAMBIO: hook global
+  const [sidebarOpen, setSidebarOpen] = useSidebarState()
 
   useEffect(() => {
     const stored = localStorage.getItem("condor_analytics_data")
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
-        setAllData([parsed])
-        setHasData(true)
+        
+        if (isMultiDataset(parsed)) {
+          const multi = parsed as MultiDataset
+          
+          if (multi.content) {
+            setAllData([multi.content])
+            setHasData(true)
+          }
+          
+          if (multi.followers) {
+            setFollowersData(multi.followers)
+          }
+          
+          if (multi.visitors) {
+            setVisitorsData(multi.visitors)
+          }
+        } else {
+          setAllData([parsed])
+          setHasData(true)
+        }
       } catch (error) {
         console.error("Failed to load stored data:", error)
       }
@@ -240,7 +261,13 @@ function DashboardContent() {
                 <OverviewTab data={filteredSocialData} platform={platform} dateRange={dateRange} />
               )}
               {activeTab === "social" && filteredSocialData && (
-                <SocialTab data={filteredSocialData} platform={platform} />
+                <SocialTab 
+                  data={filteredSocialData} 
+                  platform={platform}
+                  dateRange={dateRange}         // ⭐ NUEVO
+                  followersData={followersData}
+                  visitorsData={visitorsData}
+                />
               )}
               {activeTab === "web" && (
                 <WebTab data={cleanWebData} />

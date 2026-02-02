@@ -1,13 +1,14 @@
+
 /**
  * File: social-tab.tsx
  * Path: /components/dashboard/social-tab.tsx
- * Last Modified: 2026-02-02
- * Description: Social tab con date range filtering para followers
+ * Last Modified: 2025-12-22
+ * Description: Social tab con PostDrilldown arreglado
  */
 
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { KPICard } from "./kpi-card"
 import { CalendarHeatmap } from "./calendar-heatmap"
 import { PlatformBreakdownPie } from "@/components/dashboard/platform-breakdown-pie"
@@ -15,13 +16,12 @@ import { TopContentTab } from "./top-content-tab"
 import { PostDrilldown } from "./post-drilldown"
 import { DemographicCard } from "./demographic-card"
 import { FollowersChart } from "./followers-chart"
-import { BarChart3, Eye, MousePointerClick, TrendingUp, MapPin, Briefcase, Users, Building2, Award, UserPlus } from "lucide-react"
+import { BarChart3, Eye, MousePointerClick, TrendingUp, MapPin, Briefcase, Users, Building2, Award } from "lucide-react"
 import type { ParsedDataset, DataPoint } from "@/lib/parsers/types"
 
 interface SocialTabProps {
   data: ParsedDataset
   platform: string
-  dateRange: string  // ⭐ NUEVO
   followersData?: ParsedDataset | null
   visitorsData?: ParsedDataset | null
 }
@@ -122,74 +122,8 @@ function extractFollowersTimeSeries(data: ParsedDataset | null | undefined) {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 }
 
-// ⭐ MODIFICADA: Ahora filtra por dateRange
-function calculateFollowersStats(followersTimeSeries: any[], dateRange: string) {
-  if (followersTimeSeries.length === 0) {
-    return {
-      totalGained: 0,
-      startCount: 0,
-      endCount: 0,
-      growthRate: 0
-    }
-  }
-
-  // ⭐ NUEVO: Filtrar por dateRange
-  const now = new Date()
-  let startDate = new Date()
-  
-  switch (dateRange) {
-    case "1 week":
-      startDate.setDate(now.getDate() - 7)
-      break
-    case "2 weeks":
-      startDate.setDate(now.getDate() - 14)
-      break
-    case "1 month":
-      startDate.setDate(now.getDate() - 30)
-      break
-    case "3 months":
-      startDate.setDate(now.getDate() - 90)
-      break
-    case "6 months":
-      startDate.setDate(now.getDate() - 180)
-      break
-    case "1 year":
-      startDate.setFullYear(now.getFullYear() - 1)
-      break
-    default:
-      startDate = new Date(0)
-  }
-  
-  const filtered = followersTimeSeries.filter(point => {
-    const pointDate = new Date(point.date)
-    return pointDate >= startDate && pointDate <= now
-  })
-  
-  if (filtered.length === 0) {
-    return {
-      totalGained: 0,
-      startCount: 0,
-      endCount: 0,
-      growthRate: 0
-    }
-  }
-
-  // Sumar todos los followers ganados en el período FILTRADO
-  const totalGained = filtered.reduce((sum, d) => sum + d.total_followers, 0)
-  
-  const startCount = 0
-  const endCount = totalGained
-  const growthRate = startCount > 0 ? ((endCount - startCount) / startCount) * 100 : 0
-
-  return {
-    totalGained,
-    startCount,
-    endCount,
-    growthRate
-  }
-}
-
-export function SocialTab({ data, platform, dateRange, followersData, visitorsData }: SocialTabProps) {
+export function SocialTab({ data, platform, followersData, visitorsData }: SocialTabProps) {
+  // ✅ NUEVO: Estado para PostDrilldown
   const [drilldownOpen, setDrilldownOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedPosts, setSelectedPosts] = useState<DataPoint[]>([])
@@ -210,11 +144,7 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
   
   const followersTimeSeries = extractFollowersTimeSeries(followersData)
   
-  // ⭐ MODIFICADO: Ahora pasa dateRange
-  const followersStats = useMemo(() => {
-    return calculateFollowersStats(followersTimeSeries, dateRange)
-  }, [followersTimeSeries, dateRange])
-
+  // ✅ NUEVO: Handler que recibe DataPoint[]
   const handleDateClick = (dateStr: string, posts: DataPoint[]) => {
     setSelectedDate(dateStr)
     setSelectedPosts(posts)
@@ -229,17 +159,10 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
 
   const hasFollowersData = followersLocation.length > 0 || followersTimeSeries.length > 0
   const hasVisitorsData = visitorsLocation.length > 0
-  
-  // ⭐ NUEVO: Solo mostrar demographics si realmente hay datos
-  const hasDemographicData = followersLocation.length > 0 || 
-                             followersJobFunction.length > 0 || 
-                             followersIndustry.length > 0 || 
-                             followersSeniority.length > 0 || 
-                             followersCompanySize.length > 0
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           label="Total Posts"
           value={kpis.totalPosts}
@@ -267,17 +190,6 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
           subText="Engagement / Impressions"
           icon={<MousePointerClick className="w-6 h-6 text-primary" />}
         />
-
-        {followersTimeSeries.length > 0 && (
-          <KPICard
-            label="Followers Gained"
-            value={`+${followersStats.totalGained.toLocaleString()}`}
-            subText={followersStats.endCount > 0 
-              ? `Total: ${followersStats.endCount.toLocaleString()} followers` 
-              : `New followers in period`}
-            icon={<UserPlus className="w-6 h-6 text-primary" />}
-          />
-        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
@@ -303,63 +215,60 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
             <FollowersChart data={followersTimeSeries} />
           )}
           
-          {/* ⭐ MODIFICADO: Solo mostrar título si hay datos demográficos */}
-          {hasDemographicData && (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-foreground">Follower Demographics</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {followersLocation.length > 0 && (
-                  <DemographicCard
-                    title="Location"
-                    description="Where your followers are from"
-                    data={followersLocation}
-                    icon={<MapPin className="w-5 h-5" />}
-                    valueLabel="followers"
-                  />
-                )}
-                
-                {followersJobFunction.length > 0 && (
-                  <DemographicCard
-                    title="Job Function"
-                    description="Professional roles of your followers"
-                    data={followersJobFunction}
-                    icon={<Briefcase className="w-5 h-5" />}
-                    valueLabel="followers"
-                  />
-                )}
-                
-                {followersIndustry.length > 0 && (
-                  <DemographicCard
-                    title="Industry"
-                    description="Industries your followers work in"
-                    data={followersIndustry}
-                    icon={<Building2 className="w-5 h-5" />}
-                    valueLabel="followers"
-                  />
-                )}
-                
-                {followersSeniority.length > 0 && (
-                  <DemographicCard
-                    title="Seniority"
-                    description="Career level of your followers"
-                    data={followersSeniority}
-                    icon={<Award className="w-5 h-5" />}
-                    valueLabel="followers"
-                  />
-                )}
-                
-                {followersCompanySize.length > 0 && (
-                  <DemographicCard
-                    title="Company Size"
-                    description="Size of companies your followers work at"
-                    data={followersCompanySize}
-                    icon={<Users className="w-5 h-5" />}
-                    valueLabel="followers"
-                  />
-                )}
-              </div>
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-foreground">Follower Demographics</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {followersLocation.length > 0 && (
+                <DemographicCard
+                  title="Location"
+                  description="Where your followers are from"
+                  data={followersLocation}
+                  icon={<MapPin className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
+              
+              {followersJobFunction.length > 0 && (
+                <DemographicCard
+                  title="Job Function"
+                  description="Professional roles of your followers"
+                  data={followersJobFunction}
+                  icon={<Briefcase className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
+              
+              {followersIndustry.length > 0 && (
+                <DemographicCard
+                  title="Industry"
+                  description="Industries your followers work in"
+                  data={followersIndustry}
+                  icon={<Building2 className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
+              
+              {followersSeniority.length > 0 && (
+                <DemographicCard
+                  title="Seniority"
+                  description="Career level of your followers"
+                  data={followersSeniority}
+                  icon={<Award className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
+              
+              {followersCompanySize.length > 0 && (
+                <DemographicCard
+                  title="Company Size"
+                  description="Size of companies your followers work at"
+                  data={followersCompanySize}
+                  icon={<Users className="w-5 h-5" />}
+                  valueLabel="followers"
+                />
+              )}
             </div>
-          )}
+          </div>
         </>
       )}
       
@@ -420,6 +329,7 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
         </div>
       )}
       
+      {/* ✅ NUEVO PostDrilldown */}
       <PostDrilldown
         open={drilldownOpen}
         dateStr={selectedDate}

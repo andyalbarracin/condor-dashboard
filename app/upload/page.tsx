@@ -1,8 +1,8 @@
 /**
  * File: page.tsx
  * Path: /app/upload/page.tsx
- * Last Modified: 2026-01-20
- * Description: Upload page con sidebar persistente entre páginas
+ * Last Modified: 2026-02-02
+ * Description: Upload page con multi-dataset support
  */
 
 "use client"
@@ -17,14 +17,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DataPreview } from "@/components/dashboard/data-preview"
 import { parseFile } from "@/lib/parsers/universal-parser"
 import { useSidebarState } from "@/lib/hooks/useSidebarState"
-import type { ParsedDataset } from "@/lib/parsers/types"
+import type { ParsedDataset, MultiDataset } from "@/lib/parsers/types"
+import { isMultiDataset } from "@/lib/parsers/types"
 import { AlertCircle, CheckCircle } from "lucide-react"
 
 export default function UploadPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [parsedData, setParsedData] = useState<ParsedDataset | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useSidebarState()  // ← CAMBIO: hook global
+  const [sidebarOpen, setSidebarOpen] = useSidebarState()
   const router = useRouter()
 
   const handleFileSelect = async (file: File) => {
@@ -58,51 +59,104 @@ export default function UploadPage() {
     if (!parsedData) return
     
     try {
-      const existingDataStr = localStorage.getItem("condor_analytics_data")
-      let existingData: ParsedDataset | null = null
+      // 1. Cargar datos existentes
+      const existingStr = localStorage.getItem("condor_analytics_data")
+      let multiData: MultiDataset = {}
       
-      if (existingDataStr) {
-        try {
-          existingData = JSON.parse(existingDataStr)
-        } catch (error) {
-          existingData = null
+      if (existingStr) {
+        const existing = JSON.parse(existingStr)
+        
+        // Migración: Si es formato viejo (single dataset), convertir
+        if (existing.dataPoints && !isMultiDataset(existing)) {
+          // Es formato viejo - convertir a MultiDataset
+          multiData.content = existing as ParsedDataset
+        } else {
+          // Es formato nuevo - usar directamente
+          multiData = existing as MultiDataset
         }
       }
       
-      if (existingData && existingData.dataPoints) {
-        const mergedDataPoints = [...existingData.dataPoints, ...parsedData.dataPoints]
-        
-        const uniqueDataPoints = mergedDataPoints.filter((point, index, self) => 
-          index === self.findIndex(p => p.date === point.date && p.source === point.source)
-        )
-        
-        uniqueDataPoints.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        
-        const mergedData: ParsedDataset = {
-          source: parsedData.source,
-          dataPoints: uniqueDataPoints,
-          rawHeaders: [...existingData.rawHeaders, ...parsedData.rawHeaders],
-          normalizedHeaders: { ...existingData.normalizedHeaders, ...parsedData.normalizedHeaders },
-          dateRange: {
-            start: uniqueDataPoints[0].date,
-            end: uniqueDataPoints[uniqueDataPoints.length - 1].date,
-          },
-          metadata: {
-            ...existingData.metadata,
-            ...parsedData.metadata,
+      // 2. Agregar nuevo dataset según subType
+      const subType = parsedData.subType || 'content'
+      
+      switch (subType) {
+        case 'content':
+          // Merge con existing content si existe
+          if (multiData.content) {
+            const mergedPoints = [...multiData.content.dataPoints, ...parsedData.dataPoints]
+            const uniquePoints = mergedPoints.filter((point, index, self) => 
+              index === self.findIndex(p => p.id === point.id)
+            )
+            multiData.content = {
+              ...parsedData,
+              dataPoints: uniquePoints.sort((a, b) => 
+                new Date(a.date).getTime() - new Date(b.date).getTime()
+              )
+            }
+          } else {
+            multiData.content = parsedData
           }
-        }
-        
-        localStorage.setItem("condor_analytics_data", JSON.stringify(mergedData))
-      } else {
-        localStorage.setItem("condor_analytics_data", JSON.stringify(parsedData))
+          break
+          
+        case 'followers':
+          // Merge con existing followers
+          if (multiData.followers) {
+            const mergedPoints = [...multiData.followers.dataPoints, ...parsedData.dataPoints]
+            const uniquePoints = mergedPoints.filter((point, index, self) => 
+              index === self.findIndex(p => p.id === point.id)
+            )
+            multiData.followers = {
+              ...parsedData,
+              dataPoints: uniquePoints.sort((a, b) => 
+                new Date(a.date).getTime() - new Date(b.date).getTime()
+              )
+            }
+          } else {
+            multiData.followers = parsedData
+          }
+          break
+          
+        case 'visitors':
+          // Merge con existing visitors
+          if (multiData.visitors) {
+            const mergedPoints = [...multiData.visitors.dataPoints, ...parsedData.dataPoints]
+            const uniquePoints = mergedPoints.filter((point, index, self) => 
+              index === self.findIndex(p => p.id === point.id)
+            )
+            multiData.visitors = {
+              ...parsedData,
+              dataPoints: uniquePoints.sort((a, b) => 
+                new Date(a.date).getTime() - new Date(b.date).getTime()
+              )
+            }
+          } else {
+            multiData.visitors = parsedData
+          }
+          break
+          
+        default:
+          // Fallback: poner en content
+          multiData.content = parsedData
       }
       
+      // 3. Actualizar metadata
+      multiData.lastUpdated = new Date().toISOString()
+      multiData.platforms = Array.from(new Set([
+        ...(multiData.content?.dataPoints.map(p => p.source) || []),
+        ...(multiData.followers?.dataPoints.map(p => p.source) || []),
+        ...(multiData.visitors?.dataPoints.map(p => p.source) || [])
+      ]))
+      
+      // 4. Guardar
+      localStorage.setItem("condor_analytics_data", JSON.stringify(multiData))
+      
+      // 5. Redirect
       setTimeout(() => {
         router.push("/")
       }, 500)
       
     } catch (error) {
+      console.error('Error saving data:', error)
       setError('Error saving data to localStorage')
     }
   }
