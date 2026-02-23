@@ -164,6 +164,7 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
         }
         
         dataPoints.push({
+            id: `twitter-${normalizedDate}-${fields[idIdx] || parsedCount}`,
           date: normalizedDate,
           source: 'twitter',
           metrics,
