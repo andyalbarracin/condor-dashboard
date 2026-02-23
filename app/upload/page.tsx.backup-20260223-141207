@@ -1,8 +1,8 @@
 /**
  * File: page.tsx
  * Path: /app/upload/page.tsx
- * Last Modified: 2026-02-23
- * Description: Upload page con multi-dataset support y deduplicación mejorada
+ * Last Modified: 2026-02-02
+ * Description: Upload page con multi-dataset support
  */
 
 "use client"
@@ -68,8 +68,10 @@ export default function UploadPage() {
         
         // Migración: Si es formato viejo (single dataset), convertir
         if (existing.dataPoints && !isMultiDataset(existing)) {
+          // Es formato viejo - convertir a MultiDataset
           multiData.content = existing as ParsedDataset
         } else {
+          // Es formato nuevo - usar directamente
           multiData = existing as MultiDataset
         }
       }
@@ -82,13 +84,8 @@ export default function UploadPage() {
           // Merge con existing content si existe
           if (multiData.content) {
             const mergedPoints = [...multiData.content.dataPoints, ...parsedData.dataPoints]
-            // ⭐ FIX: Deduplicación inteligente - usar ID si existe, sino date+source
             const uniquePoints = mergedPoints.filter((point, index, self) => 
-              index === self.findIndex(p => 
-                p.id && point.id 
-                  ? p.id === point.id 
-                  : (p.date === point.date && p.source === point.source && JSON.stringify(p.metrics) === JSON.stringify(point.metrics))
-              )
+              index === self.findIndex(p => p.id === point.id)
             )
             multiData.content = {
               ...parsedData,
@@ -105,13 +102,8 @@ export default function UploadPage() {
           // Merge con existing followers
           if (multiData.followers) {
             const mergedPoints = [...multiData.followers.dataPoints, ...parsedData.dataPoints]
-            // ⭐ FIX: Deduplicación inteligente
             const uniquePoints = mergedPoints.filter((point, index, self) => 
-              index === self.findIndex(p => 
-                p.id && point.id 
-                  ? p.id === point.id 
-                  : (p.date === point.date && p.source === point.source)
-              )
+              index === self.findIndex(p => p.id === point.id)
             )
             multiData.followers = {
               ...parsedData,
@@ -128,13 +120,8 @@ export default function UploadPage() {
           // Merge con existing visitors
           if (multiData.visitors) {
             const mergedPoints = [...multiData.visitors.dataPoints, ...parsedData.dataPoints]
-            // ⭐ FIX: Deduplicación inteligente
             const uniquePoints = mergedPoints.filter((point, index, self) => 
-              index === self.findIndex(p => 
-                p.id && point.id 
-                  ? p.id === point.id 
-                  : (p.date === point.date && p.source === point.source)
-              )
+              index === self.findIndex(p => p.id === point.id)
             )
             multiData.visitors = {
               ...parsedData,
@@ -144,29 +131,6 @@ export default function UploadPage() {
             }
           } else {
             multiData.visitors = parsedData
-          }
-          break
-          
-        case 'account_overview':
-          // Twitter account_overview va a content también
-          if (multiData.content) {
-            const mergedPoints = [...multiData.content.dataPoints, ...parsedData.dataPoints]
-            // ⭐ FIX: Deduplicación inteligente
-            const uniquePoints = mergedPoints.filter((point, index, self) => 
-              index === self.findIndex(p => 
-                p.id && point.id 
-                  ? p.id === point.id 
-                  : (p.date === point.date && p.source === point.source && JSON.stringify(p.metrics) === JSON.stringify(point.metrics))
-              )
-            )
-            multiData.content = {
-              ...parsedData,
-              dataPoints: uniquePoints.sort((a, b) => 
-                new Date(a.date).getTime() - new Date(b.date).getTime()
-              )
-            }
-          } else {
-            multiData.content = parsedData
           }
           break
           
@@ -185,12 +149,6 @@ export default function UploadPage() {
       
       // 4. Guardar
       localStorage.setItem("condor_analytics_data", JSON.stringify(multiData))
-      
-      console.log('✅ Data saved successfully:', {
-        content: multiData.content?.dataPoints.length || 0,
-        followers: multiData.followers?.dataPoints.length || 0,
-        visitors: multiData.visitors?.dataPoints.length || 0,
-      })
       
       // 5. Redirect
       setTimeout(() => {
