@@ -2,7 +2,7 @@
  * File: top-content-tab.tsx
  * Path: /components/dashboard/top-content-tab.tsx
  * Last Modified: 2026-02-02
- * Description: Top Content sin columna de Followers
+ * Description: Top Content con tooltips en headers
  */
 
 "use client"
@@ -10,6 +10,8 @@
 import { useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronUp, ChevronDown } from "lucide-react"
+import { MetricTooltipIcon } from "@/components/ui/metric-tooltip"
+import { getMetricTooltip } from "@/lib/constants/metric-tooltips"
 import type { ParsedDataset } from "@/lib/parsers/types"
 
 interface TopContentTabProps {
@@ -31,7 +33,6 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
   const topContent = useMemo(() => {
     let filteredPoints = data.dataPoints
     
-    // Filtrar por plataforma
     if (platform !== "All") {
       const normalizedFilter = normalizePlatform(platform)
       filteredPoints = filteredPoints.filter(p => 
@@ -39,14 +40,11 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
       )
     }
     
-    // FILTRAR posts válidos (con título/texto Y con impresiones)
     const validPosts = filteredPoints.filter(p => {
-      // Solo verificar que tenga ALGO de contenido
       const hasContent = p.metrics.title || p.metrics.content || p.metrics.post_text
       return hasContent && hasContent.toString().trim().length > 0
     })
     
-    // Mapear a formato de post
     let posts = validPosts.map((p, index) => {
       let engRate = Number(p.metrics.engagement_rate || 0)
       
@@ -70,7 +68,6 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
       }
     })
     
-    // Ordenar
     posts.sort((a, b) => {
       let vA = a[sortBy as keyof typeof a]
       let vB = b[sortBy as keyof typeof b]
@@ -87,7 +84,6 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
       return 0
     })
     
-    // Aplicar límite DESPUÉS de ordenar
     return rowsPerPage === 999 ? posts : posts.slice(0, rowsPerPage)
   }, [data, platform, sortBy, sortDir, rowsPerPage])
   
@@ -151,6 +147,7 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
                 >
                   <div className="flex items-center justify-end gap-2">
                     Impressions
+                    {getMetricTooltip("impressions") && <MetricTooltipIcon metric={getMetricTooltip("impressions")!} size="sm" />}
                     {sortBy === "impressions" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
                   </div>
                 </th>
@@ -160,6 +157,7 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
                 >
                   <div className="flex items-center justify-end gap-2">
                     Engagements
+                    {getMetricTooltip("engagements") && <MetricTooltipIcon metric={getMetricTooltip("engagements")!} size="sm" />}
                     {sortBy === "engagements" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
                   </div>
                 </th>
@@ -169,6 +167,7 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
                 >
                   <div className="flex items-center justify-end gap-2">
                     Clicks
+                    {getMetricTooltip("clicks") && <MetricTooltipIcon metric={getMetricTooltip("clicks")!} size="sm" />}
                     {sortBy === "clicks" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
                   </div>
                 </th>
@@ -178,6 +177,7 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
                 >
                   <div className="flex items-center justify-end gap-2">
                     Reactions
+                    {getMetricTooltip("reactions") && <MetricTooltipIcon metric={getMetricTooltip("reactions")!} size="sm" />}
                     {sortBy === "reactions" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
                   </div>
                 </th>
@@ -187,6 +187,7 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
                 >
                   <div className="flex items-center justify-end gap-2">
                     Comments
+                    {getMetricTooltip("comments") && <MetricTooltipIcon metric={getMetricTooltip("comments")!} size="sm" />}
                     {sortBy === "comments" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
                   </div>
                 </th>
@@ -196,6 +197,7 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
                 >
                   <div className="flex items-center justify-end gap-2">
                     Shares
+                    {getMetricTooltip("shares") && <MetricTooltipIcon metric={getMetricTooltip("shares")!} size="sm" />}
                     {sortBy === "shares" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
                   </div>
                 </th>
@@ -205,6 +207,7 @@ export function TopContentTab({ data, platform }: TopContentTabProps) {
                 >
                   <div className="flex items-center justify-end gap-2">
                     Eng. Rate
+                    {getMetricTooltip("engagement_rate") && <MetricTooltipIcon metric={getMetricTooltip("engagement_rate")!} size="sm" />}
                     {sortBy === "engagement_rate" && (sortDir === "desc" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />)}
                   </div>
                 </th>

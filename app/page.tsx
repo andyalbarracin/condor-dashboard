@@ -2,7 +2,7 @@
  * File: page.tsx
  * Path: /app/page.tsx
  * Last Modified: 2026-02-02
- * Description: Dashboard principal con multi-dataset support y date range
+ * Description: Dashboard principal con multi-dataset support, date range y Weekly Summary
  */
 
 "use client"
@@ -17,9 +17,11 @@ import { BlankState } from "@/components/dashboard/blank-state"
 import { OverviewTab } from "@/components/dashboard/overview-tab"
 import { SocialTab } from "@/components/dashboard/social-tab"
 import { WebTab } from "@/components/dashboard/web-tab"
+import { WeeklySummaryButton } from "@/components/dashboard/weekly-summary-button"
 import { useSidebarState } from "@/lib/hooks/useSidebarState"
 import type { ParsedDataset } from "@/lib/parsers/types"
 import { isMultiDataset, type MultiDataset } from "@/lib/parsers/types"
+import { WeeklySummaryHeader } from "@/components/dashboard/weekly-summary-header" 
 
 const PlatformContext = createContext<{
   platform: string
@@ -83,7 +85,6 @@ function filterByDateRange(data: ParsedDataset, dateRange: string): ParsedDatase
   }
 }
 
-// Componente que usa useSearchParams - DEBE estar en Suspense
 function SearchParamsHandler({
   activeTab,
   setActiveTab,
@@ -130,11 +131,9 @@ function DashboardContent() {
             setAllData([multi.content])
             setHasData(true)
           }
-          
           if (multi.followers) {
             setFollowersData(multi.followers)
           }
-          
           if (multi.visitors) {
             setVisitorsData(multi.visitors)
           }
@@ -162,7 +161,6 @@ function DashboardContent() {
       const newFiles = [...uploadedFiles, file.name]
       setUploadedFiles(newFiles)
       localStorage.setItem("condor_uploaded_files", JSON.stringify(newFiles))
-      console.log("File uploaded:", file.name)
     } catch (error) {
       console.error("Failed to upload file:", error)
     }
@@ -181,7 +179,8 @@ function DashboardContent() {
     ? {
         ...allData[0],
         dataPoints: allData[0].dataPoints.filter((p) => 
-          p.source === 'linkedin' || p.source === 'twitter' || p.source === 'instagram' || p.source === 'tiktok'
+          p.source === 'linkedin' || p.source === 'twitter' || 
+          p.source === 'instagram' || p.source === 'tiktok'
         )
       }
     : null
@@ -257,21 +256,33 @@ function DashboardContent() {
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ height: "calc(100vh - 13rem)" }}>
             <div className="px-8 py-8 min-h-full">
+
               {activeTab === "overview" && filteredSocialData && (
-                <OverviewTab data={filteredSocialData} platform={platform} dateRange={dateRange} />
-              )}
-              {activeTab === "social" && filteredSocialData && (
-                <SocialTab 
-                  data={filteredSocialData} 
+                <OverviewTab
+                  data={filteredSocialData}
                   platform={platform}
-                  dateRange={dateRange}         // ⭐ NUEVO
-                  followersData={followersData}
-                  visitorsData={visitorsData}
+                  dateRange={dateRange}
                 />
               )}
+
+              {/* ⭐ SOCIAL TAB con Weekly Summary Button */}
+              {activeTab === "social" && filteredSocialData && (
+              <div className="space-y-6">
+                <WeeklySummaryHeader data={filteredSocialData} userName="Andy" />
+                  <SocialTab
+                    data={filteredSocialData}
+                    platform={platform}
+                    dateRange={dateRange}
+                    followersData={followersData}
+                    visitorsData={visitorsData}
+                  />
+                </div>
+              )}
+
               {activeTab === "web" && (
                 <WebTab data={cleanWebData} />
               )}
+
             </div>
           </div>
 

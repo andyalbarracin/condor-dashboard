@@ -245,6 +245,7 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
           value={kpis.totalPosts}
           subText={`Social media posts`}
           icon={<BarChart3 className="w-6 h-6 text-primary" />}
+          tooltipKey="total_posts"
         />
         
         <KPICard
@@ -252,6 +253,7 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
           value={formatNumber(kpis.totalImpressions)}
           subText="Views of your content"
           icon={<Eye className="w-6 h-6 text-primary" />}
+          tooltipKey="total_impressions"
         />
         
         <KPICard
@@ -259,6 +261,7 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
           value={formatNumber(kpis.totalEngagements)}
           subText="Likes, comments, shares"
           icon={<TrendingUp className="w-6 h-6 text-primary" />}
+          tooltipKey="total_engagements"
         />
         
         <KPICard
@@ -266,6 +269,7 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
           value={`${kpis.avgEngagementRate.toFixed(2)}%`}
           subText="Engagement / Impressions"
           icon={<MousePointerClick className="w-6 h-6 text-primary" />}
+          tooltipKey="engagement_rate"
         />
 
         {followersTimeSeries.length > 0 && (

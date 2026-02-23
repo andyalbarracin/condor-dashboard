@@ -2,13 +2,15 @@
  * File: followers-growth-card.tsx
  * Path: /components/dashboard/followers-growth-card.tsx
  * Last Modified: 2026-02-02
- * Description: Card descriptiva de crecimiento de followers para Dashboard y Reports
+ * Description: Card descriptiva de crecimiento de followers con tooltip
  */
 
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, TrendingUp } from "lucide-react"
+import { MetricTooltipIcon } from "@/components/ui/metric-tooltip"
+import { getMetricTooltip } from "@/lib/constants/metric-tooltips"
 
 interface FollowersGrowthCardProps {
   totalGained: number
@@ -36,6 +38,8 @@ export function FollowersGrowthCard({
     return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   }
 
+  const followersTooltip = getMetricTooltip("followers_gained")
+
   return (
     <Card className="border-primary/20 bg-primary/5">
       <CardHeader>
@@ -43,8 +47,11 @@ export function FollowersGrowthCard({
           <div className="p-3 bg-primary/10 rounded-lg">
             <Users className="w-6 h-6 text-primary" />
           </div>
-          <div>
-            <CardTitle>Followers Growth Analysis</CardTitle>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <CardTitle>Followers Growth Analysis</CardTitle>
+              {followersTooltip && <MetricTooltipIcon metric={followersTooltip} size="md" />}
+            </div>
             <CardDescription>LinkedIn follower metrics for this period</CardDescription>
           </div>
         </div>

@@ -2,7 +2,7 @@
  * File: page.tsx
  * Path: /app/reports/page.tsx
  * Last Modified: 2026-02-02
- * Description: Reports con multi-dataset support y followers growth analysis
+ * Description: Reports con multi-dataset support, followers growth analysis y date picker arreglado
  */
 
 "use client"
@@ -64,17 +64,14 @@ export default function ReportsPage() {
         if (isMultiDataset(parsed)) {
           const multi = parsed as MultiDataset
           
-          // Usar content para reports
           if (multi.content) {
             setData(multi.content)
           }
           
-          // Cargar followers data
           if (multi.followers) {
             setFollowersData(multi.followers)
           }
         } else {
-          // Formato viejo (backward compatibility)
           setData(parsed)
         }
       } catch (error) {
@@ -83,31 +80,33 @@ export default function ReportsPage() {
     }
   }, [])
 
-  // Calcular stats de followers para el período filtrado
+  // ⭐ FIX: Followers stats usa fecha más reciente de datos
   const followersStats = useMemo(() => {
     if (!followersData) return null
     
-    const now = new Date()
-    let startDate = new Date()
+    const allFollowersDates = followersData.dataPoints.map(p => new Date(p.date).getTime())
+    const mostRecentFollowersDate = new Date(Math.max(...allFollowersDates))
+    
+    let startDate = new Date(mostRecentFollowersDate)
     
     switch (dateRange) {
       case "1 week":
-        startDate.setDate(now.getDate() - 7)
+        startDate.setDate(mostRecentFollowersDate.getDate() - 7)
         break
       case "2 weeks":
-        startDate.setDate(now.getDate() - 14)
+        startDate.setDate(mostRecentFollowersDate.getDate() - 14)
         break
       case "1 month":
-        startDate.setDate(now.getDate() - 30)
+        startDate.setDate(mostRecentFollowersDate.getDate() - 30)
         break
       case "3 months":
-        startDate.setDate(now.getDate() - 90)
+        startDate.setDate(mostRecentFollowersDate.getDate() - 90)
         break
       case "6 months":
-        startDate.setDate(now.getDate() - 180)
+        startDate.setDate(mostRecentFollowersDate.getDate() - 180)
         break
       case "1 year":
-        startDate.setFullYear(now.getFullYear() - 1)
+        startDate.setFullYear(mostRecentFollowersDate.getFullYear() - 1)
         break
       default:
         startDate = new Date(0)
@@ -115,7 +114,7 @@ export default function ReportsPage() {
     
     const filteredFollowers = followersData.dataPoints.filter(point => {
       const pointDate = new Date(point.date)
-      return pointDate >= startDate && pointDate <= now
+      return pointDate >= startDate && pointDate <= mostRecentFollowersDate
     })
     
     if (filteredFollowers.length === 0) return null
@@ -142,30 +141,33 @@ export default function ReportsPage() {
     }
   }, [followersData, dateRange])
   
+  // ⭐ FIX: Filtered data usa fecha más reciente de datos
   const filteredData = useMemo(() => {
     if (!data) return null
     
-    const now = new Date()
-    let startDate = new Date()
+    const allDates = data.dataPoints.map(p => new Date(p.date).getTime())
+    const mostRecentDataDate = new Date(Math.max(...allDates))
+    
+    let startDate = new Date(mostRecentDataDate)
     
     switch (dateRange) {
       case "1 week":
-        startDate.setDate(now.getDate() - 7)
+        startDate.setDate(mostRecentDataDate.getDate() - 7)
         break
       case "2 weeks":
-        startDate.setDate(now.getDate() - 14)
+        startDate.setDate(mostRecentDataDate.getDate() - 14)
         break
       case "1 month":
-        startDate.setDate(now.getDate() - 30)
+        startDate.setDate(mostRecentDataDate.getDate() - 30)
         break
       case "3 months":
-        startDate.setDate(now.getDate() - 90)
+        startDate.setDate(mostRecentDataDate.getDate() - 90)
         break
       case "6 months":
-        startDate.setDate(now.getDate() - 180)
+        startDate.setDate(mostRecentDataDate.getDate() - 180)
         break
       case "1 year":
-        startDate.setFullYear(now.getFullYear() - 1)
+        startDate.setFullYear(mostRecentDataDate.getFullYear() - 1)
         break
       default:
         startDate = new Date(0)
@@ -173,7 +175,7 @@ export default function ReportsPage() {
     
     let filtered = data.dataPoints.filter(point => {
       const pointDate = new Date(point.date)
-      return pointDate >= startDate && pointDate <= now
+      return pointDate >= startDate && pointDate <= mostRecentDataDate
     })
     
     if (platform !== "All") {
@@ -442,9 +444,7 @@ export default function ReportsPage() {
                   twitterComparisons={comparisons?.twitter || []}
                   recommendations={intelligentRecommendations}
                   topContent={topContent}
-                  followersStats={followersStats}  // ⭐ AGREGAR ESTA LÍNEA
-
-                  
+                  followersStats={followersStats}
                 />
               </div>
             </div>
@@ -517,7 +517,6 @@ export default function ReportsPage() {
               </Card>
             </div>
 
-            {/* ⭐ NUEVO: Followers Growth Card */}
             {followersStats && (
               <FollowersGrowthCard
                 totalGained={followersStats.totalGained}

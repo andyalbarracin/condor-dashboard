@@ -16,6 +16,7 @@ interface KPICardProps {
   change?: number
   subText?: string
   icon?: React.ReactNode
+  tooltipKey?: string
   trend?: "up" | "down" | "neutral"
 }
 
