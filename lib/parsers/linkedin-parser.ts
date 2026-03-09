@@ -1,8 +1,8 @@
 /**
  * File: linkedin-parser.ts
  * Path: /lib/parsers/linkedin-parser.ts
- * Last Modified: 2025-12-08
- * Description: Parser con IDs únicos para evitar duplicados
+ * Last Modified: 2026-03-09
+ * Description: Parser arreglado - cuenta SOLO posts reales de "All posts"
  */
 
 import * as XLSX from 'xlsx'
@@ -60,7 +60,6 @@ function findColumn(row: any, names: string[]): any {
 }
 
 function generateUniqueId(date: string, title: string, index: number): string {
-  // Limpia el título para usarlo en el ID
   const cleanTitle = title
     .substring(0, 30)
     .replace(/[^a-zA-Z0-9]/g, '-')
@@ -89,36 +88,34 @@ function detectLinkedInType(sheetNames: string[]): 'content' | 'followers' | 'vi
 }
 
 function parseContentAnalytics(workbook: XLSX.WorkBook): { dataPoints: NormalizedDataPoint[]; headers: string[] } {
-  let mainSheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('metrics')) || workbook.SheetNames[0]
-  const mainSheet = workbook.Sheets[mainSheetName]
+  // ⭐ FIX: Leer SOLO "All posts" para obtener posts reales
+  const allPostSheet = workbook.Sheets['All posts'] || workbook.Sheets['All Posts']
   
-  let allRows: any[] = XLSX.utils.sheet_to_json(mainSheet, { 
-    defval: '', 
-    raw: false,
-    header: 1
-  })
+  if (!allPostSheet) {
+    throw new Error('No se encontró la hoja "All posts"')
+  }
   
-  if (allRows.length < 2) throw new Error('Archivo muy corto')
+  let allPostRaw: any[] = XLSX.utils.sheet_to_json(allPostSheet, { defval: '', raw: false, header: 1 })
   
-  let headerRowIdx = -1
-  for (let i = 0; i < Math.min(5, allRows.length); i++) {
-    const row = allRows[i] as any[]
-    const hasDateColumn = row.some(cell => {
-      const cellStr = String(cell).trim()
-      return cellStr.length < 20 && cellStr.toLowerCase().includes('date')
-    })
-    if (hasDateColumn) {
-      headerRowIdx = i
+  // Buscar fila de headers
+  let postHeaderIdx = -1
+  for (let i = 0; i < Math.min(5, allPostRaw.length); i++) {
+    const row = allPostRaw[i] as any[]
+    if (row.some(cell => String(cell).trim().length < 30 && String(cell).toLowerCase().includes('post title'))) {
+      postHeaderIdx = i
       break
     }
   }
   
-  if (headerRowIdx === -1) throw new Error('No se encontraron headers')
+  if (postHeaderIdx === -1) {
+    throw new Error('No se encontraron headers en "All posts"')
+  }
   
-  const headers = allRows[headerRowIdx] as string[]
-  const dataRows = allRows.slice(headerRowIdx + 1)
+  const headers = allPostRaw[postHeaderIdx] as string[]
+  const postDataRows = allPostRaw.slice(postHeaderIdx + 1)
   
-  const mainRows = dataRows.map(row => {
+  // Convertir filas a objetos
+  const posts = postDataRows.map(row => {
     const obj: any = {}
     headers.forEach((h, idx) => {
       obj[String(h)] = (row as any[])[idx]
@@ -126,53 +123,12 @@ function parseContentAnalytics(workbook: XLSX.WorkBook): { dataPoints: Normalize
     return obj
   })
   
-  const allPostSheet = workbook.Sheets['All posts'] || workbook.Sheets['All Posts']
-  let postMap = new Map<string, Array<{ title: string; link: string }>>()
-  
-  if (allPostSheet) {
-    let allPostRaw: any[] = XLSX.utils.sheet_to_json(allPostSheet, { defval: '', raw: false, header: 1 })
-    
-    let postHeaderIdx = -1
-    for (let i = 0; i < Math.min(5, allPostRaw.length); i++) {
-      const row = allPostRaw[i] as any[]
-      if (row.some(cell => String(cell).trim().length < 30 && String(cell).toLowerCase().includes('post title'))) {
-        postHeaderIdx = i
-        break
-      }
-    }
-    
-    if (postHeaderIdx === -1) postHeaderIdx = 0
-    
-    const postHeaders = allPostRaw[postHeaderIdx] as string[]
-    const postDataRows = allPostRaw.slice(postHeaderIdx + 1)
-    
-    postDataRows.forEach(row => {
-      const obj: any = {}
-      postHeaders.forEach((h, idx) => {
-        obj[String(h)] = (row as any[])[idx]
-      })
-      
-      try {
-        const date = findColumn(obj, ['Created date', 'Date'])
-        if (date) {
-          const normalized = parseLinkedInDate(date)
-          const title = String(findColumn(obj, ['Post title', 'Title']) || '')
-          const link = String(findColumn(obj, ['Post link', 'Link']) || '')
-          
-          if (!postMap.has(normalized)) {
-            postMap.set(normalized, [])
-          }
-          postMap.get(normalized)!.push({ title, link })
-        }
-      } catch (e) {}
-    })
-  }
-  
+  // ⭐ Crear dataPoints SOLO de posts reales
   const dataPoints: NormalizedDataPoint[] = []
   const dateCounter = new Map<string, number>()
   
-  for (const row of mainRows) {
-    const dateStr = findColumn(row, ['Date', 'date'])
+  for (const post of posts) {
+    const dateStr = findColumn(post, ['Created date', 'Date'])
     if (!dateStr || !String(dateStr).trim()) continue
     
     try {
@@ -182,38 +138,40 @@ function parseContentAnalytics(workbook: XLSX.WorkBook): { dataPoints: Normalize
       const currentIndex = dateCounter.get(normalizedDate) || 0
       dateCounter.set(normalizedDate, currentIndex + 1)
       
-      const postsOnDate = postMap.get(normalizedDate) || []
-      const postInfo = postsOnDate[currentIndex] || { title: '', link: '' }
+      const title = String(findColumn(post, ['Post title', 'Title']) || '')
+      const link = String(findColumn(post, ['Post link', 'Link']) || '')
       
-      const impressions = cleanNumber(findColumn(row, ['Impressions (total)', 'Impressions']))
-      const impressions_organic = cleanNumber(findColumn(row, ['Impressions (organic)']))
-      const clicks = cleanNumber(findColumn(row, ['Clicks (total)', 'Clicks']))
-      const reactions = cleanNumber(findColumn(row, ['Reactions (total)', 'Reactions']))
-      const comments = cleanNumber(findColumn(row, ['Comments (total)', 'Comments']))
-      const reposts = cleanNumber(findColumn(row, ['Reposts (total)', 'Reposts']))
-      const engagement_rate = cleanNumber(findColumn(row, ['Engagement rate (total)', 'Engagement rate']))
+      // Leer métricas directamente de "All posts"
+      const impressions = cleanNumber(findColumn(post, ['Impressions']))
+      const clicks = cleanNumber(findColumn(post, ['Clicks']))
+      const likes = cleanNumber(findColumn(post, ['Likes']))
+      const comments = cleanNumber(findColumn(post, ['Comments']))
+      const reposts = cleanNumber(findColumn(post, ['Reposts']))
+      const engagement_rate = cleanNumber(findColumn(post, ['Engagement rate']))
       
-      const engagements = reactions + comments + reposts
+      const engagements = likes + comments + reposts
       
       dataPoints.push({
-        id: generateUniqueId(normalizedDate, postInfo.title, currentIndex),
+        id: generateUniqueId(normalizedDate, title, currentIndex),
         date: normalizedDate,
         source: 'linkedin',
         metrics: {
           post_id: normalizedDate,
-          title: postInfo.title,
-          link: postInfo.link,
+          title: title,
+          link: link,
           impressions,
-          impressions_organic,
+          impressions_organic: impressions, // All posts no distingue organic/sponsored
           clicks,
-          reactions,
+          reactions: likes,
           comments,
           reposts,
           engagements,
           engagement_rate: engagement_rate || (impressions > 0 ? (engagements / impressions) * 100 : 0),
         },
       })
-    } catch (error) {}
+    } catch (error) {
+      // Saltar posts con fechas inválidas
+    }
   }
   
   return { dataPoints, headers: headers.map(h => String(h)) }
