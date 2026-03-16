@@ -31,10 +31,13 @@ export interface GAUTMCampaign {
 
 function detectCSVFormat(lines: string[]): 'traffic_sources' | 'utm_campaigns' | 'unknown' {
   for (const line of lines) {
-    if (line.includes('Session campaign') && line.includes('Engaged sessions')) {
+    // Formato 1: Traffic Sources (Session campaign como primera columna)
+    if (line.includes('Session campaign') && line.includes('Engaged sessions') && !line.includes('Session source')) {
       return 'traffic_sources'
     }
-    if (line.includes('Session source / medium') && line.includes('Campaign ID')) {
+    
+    // Formato 2: UTM Campaigns (tiene Session source / medium)
+    if (line.includes('Session source / medium') || line.includes('Session source/medium')) {
       return 'utm_campaigns'
     }
   }
@@ -154,15 +157,17 @@ function parseUTMCampaignsFormat(lines: string[]): ParsedDataset {
   
   // Buscar fechas en comentarios
   for (const line of lines) {
-    if (line.startsWith('#') && line.includes('-')) {
-      const match = line.match(/(\d{8})-(\d{8})/)
-      if (match) {
-        startDate = match[1]
-        endDate = match[2]
-      }
+    if (line.includes('Start date:')) {
+      const match = line.match(/(\d{8})/)
+      if (match) startDate = match[1]
+    }
+    if (line.includes('End date:')) {
+      const match = line.match(/(\d{8})/)
+      if (match) endDate = match[1]
     }
   }
   
+  // Buscar el header
   let headerIndex = -1
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].includes('Session source / medium')) {
@@ -178,17 +183,15 @@ function parseUTMCampaignsFormat(lines: string[]): ParsedDataset {
   const headerLine = lines[headerIndex]
   const headers = headerLine.split(',').map(h => h.trim())
   
-  const colIndexes: Record<string, number> = {
-    sourceMedium: headers.findIndex(h => h.includes('Session source / medium')),
-    campaignId: headers.findIndex(h => h === 'Campaign ID'),
-    medium: headers.findIndex(h => h === 'Medium'),
-    source: headers.findIndex(h => h === 'Source'),
-    campaign: headers.findIndex(h => h === 'Campaign'),
-    sessions: headers.findIndex(h => h === 'Sessions')
+  // Índices de columnas
+  const colIndexes = {
+    sourceMedium: headers.findIndex(h => h.toLowerCase().includes('session source')),
+    campaign: headers.findIndex(h => h.toLowerCase().includes('session campaign')),
+    sessions: headers.findIndex(h => h.toLowerCase() === 'sessions')
   }
   
-  if (colIndexes.sessions === -1) {
-    throw new Error('Falta columna Sessions')
+  if (colIndexes.sourceMedium === -1 || colIndexes.sessions === -1) {
+    throw new Error('Faltan columnas requeridas (Session source/medium o Sessions)')
   }
   
   const campaigns: GAUTMCampaign[] = []
@@ -196,30 +199,38 @@ function parseUTMCampaignsFormat(lines: string[]): ParsedDataset {
   
   for (let i = headerIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim()
-    if (!line || line.startsWith('#') || line.includes('Grand total')) continue
+    if (!line || line.startsWith('#')) continue
     
     const fields = line.split(',')
-    if (fields.length < 6) continue
+    if (fields.length < 3) continue
     
+    const sourceMediumRaw = fields[colIndexes.sourceMedium]?.trim() || ''
+    const campaignRaw = colIndexes.campaign !== -1 ? fields[colIndexes.campaign]?.trim() : ''
     const sessionsStr = fields[colIndexes.sessions]?.trim()
     const sessions = parseInt(sessionsStr) || 0
     
     if (sessions === 0) continue
     
-    const source = colIndexes.source !== -1 ? fields[colIndexes.source]?.trim() || '(not set)' : '(not set)'
-    const medium = colIndexes.medium !== -1 ? fields[colIndexes.medium]?.trim() || '(not set)' : '(not set)'
-    const campaign = colIndexes.campaign !== -1 ? fields[colIndexes.campaign]?.trim() || '(not set)' : '(not set)'
-    const campaignId = colIndexes.campaignId !== -1 ? fields[colIndexes.campaignId]?.trim() || '(not set)' : '(not set)'
-    const sourceMedium = colIndexes.sourceMedium !== -1 
-      ? fields[colIndexes.sourceMedium]?.trim() || `${source} / ${medium}`
-      : `${source} / ${medium}`
+    // Parsear "source / medium"
+    let source = '(not set)'
+    let medium = '(not set)'
+    
+    if (sourceMediumRaw.includes(' / ')) {
+      const parts = sourceMediumRaw.split(' / ')
+      source = parts[0]?.trim() || '(not set)'
+      medium = parts[1]?.trim() || '(not set)'
+    } else {
+      source = sourceMediumRaw || '(not set)'
+    }
+    
+    const campaign = campaignRaw || '(not set)'
     
     campaigns.push({
       source,
       medium,
       campaign,
-      campaign_id: campaignId,
-      source_medium: sourceMedium,
+      campaign_id: '(not set)', // Este formato no tiene campaign_id
+      source_medium: sourceMediumRaw,
       sessions
     })
     
@@ -227,7 +238,12 @@ function parseUTMCampaignsFormat(lines: string[]): ParsedDataset {
       id: `ga4-utm-${i}`,
       date: endDate || new Date().toISOString().split('T')[0],
       source: 'google-analytics',
-      metrics: { sessions }
+      metrics: { 
+        sessions,
+        source,
+        medium,
+        campaign
+      }
     })
   }
   
