@@ -34,6 +34,8 @@ export interface MultiDataset {
   content?: ParsedDataset      // Posts de LinkedIn/Twitter
   followers?: ParsedDataset    // LinkedIn followers
   visitors?: ParsedDataset     // LinkedIn visitors
+  account_overview?: ParsedDataset  // ✅ NUEVO
+
   
   // Metadatos agregados
   lastUpdated?: string

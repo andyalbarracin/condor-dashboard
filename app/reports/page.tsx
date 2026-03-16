@@ -627,11 +627,11 @@ export default function ReportsPage() {
                                   </Tooltip>
                                 </div>
                               </td>
-                              <td className="py-3 px-4 text-center font-bold">{row.actual}{row.unit || '%'}</td>
-                              <td className="py-3 px-4 text-center">{row.benchmark}{row.unit || '%'}</td>
-                              <td className="py-3 px-4 text-center text-blue-500">{row.good}{row.unit || '%'}</td>
-                              <td className="py-3 px-4 text-center text-green-500">{row.excellent}{row.unit || '%'}</td>
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-3 px-4 text-center font-bold">{row.actual}{row.unit}</td>
+                              <td className="py-3 px-4 text-center">{row.benchmark}{row.unit}</td>
+                              <td className="py-3 px-4 text-center text-blue-500">{row.good}{row.unit}</td>
+                              <td className="py-3 px-4 text-center text-green-500">{row.excellent}{row.unit}</td>
+                               <td className="py-3 px-4 text-center">
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span className={`px-2 py-1 rounded text-xs font-medium cursor-help ${getStatusColor(row.status)}`}>

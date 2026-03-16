@@ -122,18 +122,18 @@ function extractFollowersTimeSeries(data: ParsedDataset | null | undefined) {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 }
 
-// ⭐ MODIFICADA: Ahora filtra por dateRange
+// ⭐ ARREGLADA: Calcula correctamente sin growth rate
 function calculateFollowersStats(followersTimeSeries: any[], dateRange: string) {
   if (followersTimeSeries.length === 0) {
     return {
       totalGained: 0,
-      startCount: 0,
-      endCount: 0,
-      growthRate: 0
+      organicGained: 0,
+      sponsoredGained: 0,
+      growthRate: null  // ⭐ NULL porque no se puede calcular
     }
   }
 
-  // ⭐ NUEVO: Filtrar por dateRange
+  // Filtrar por dateRange
   const now = new Date()
   let startDate = new Date()
   
@@ -168,24 +168,22 @@ function calculateFollowersStats(followersTimeSeries: any[], dateRange: string) 
   if (filtered.length === 0) {
     return {
       totalGained: 0,
-      startCount: 0,
-      endCount: 0,
-      growthRate: 0
+      organicGained: 0,
+      sponsoredGained: 0,
+      growthRate: null
     }
   }
 
-  // Sumar todos los followers ganados en el período FILTRADO
+  // ✅ CORRECTO: Sumar nuevos followers en el período
   const totalGained = filtered.reduce((sum, d) => sum + d.total_followers, 0)
-  
-  const startCount = 0
-  const endCount = totalGained
-  const growthRate = startCount > 0 ? ((endCount - startCount) / startCount) * 100 : 0
+  const organicGained = filtered.reduce((sum, d) => sum + d.organic_followers, 0)
+  const sponsoredGained = filtered.reduce((sum, d) => sum + d.sponsored_followers, 0)
 
   return {
     totalGained,
-    startCount,
-    endCount,
-    growthRate
+    organicGained,
+    sponsoredGained,
+    growthRate: null  // ⭐ No se puede calcular sin baseline
   }
 }
 
@@ -276,9 +274,8 @@ export function SocialTab({ data, platform, dateRange, followersData, visitorsDa
           <KPICard
             label="Followers Gained"
             value={`+${followersStats.totalGained.toLocaleString()}`}
-            subText={followersStats.endCount > 0 
-              ? `Total: ${followersStats.endCount.toLocaleString()} followers` 
-              : `New followers in period`}
+            subText={`${followersStats.organicGained} organic + ${followersStats.sponsoredGained} sponsored`}
+
             icon={<UserPlus className="w-6 h-6 text-primary" />}
           />
         )}
