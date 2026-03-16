@@ -1,8 +1,8 @@
 /**
  * File: universal-parser.ts
  * Path: /lib/parsers/universal-parser.ts
- * Last Modified: 2025-12-09
- * Description: Parser universal con detección mejorada
+ * Last Modified: 2026-03-05
+ * Description: Parser universal con detección mejorada para GA4 UTM format
  */
 
 import { parseLinkedInXLS } from './linkedin-parser'
@@ -35,6 +35,8 @@ function isGoogleAnalytics(content: string, fileName: string): boolean {
     '# account:',
     '# property:',
     'session campaign,sessions,engaged sessions',
+    'session source / medium',  // ⭐ NUEVO - formato UTM Campaigns
+    'campaign id',              // ⭐ NUEVO - formato UTM Campaigns
   ]
   
   // Si tiene alguno de estos marcadores específicos, ES GA4

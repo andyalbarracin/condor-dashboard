@@ -146,6 +146,24 @@ export default function UploadPage() {
             multiData.visitors = parsedData
           }
           break
+
+          case 'account_overview':
+          // ✅ NUEVO: Guardar account overview de Twitter
+          if (multiData.account_overview) {
+            const mergedPoints = [...multiData.account_overview.dataPoints, ...parsedData.dataPoints]
+            const uniquePoints = mergedPoints.filter((point, index, self) => 
+              index === self.findIndex(p => p.id === point.id)
+            )
+            multiData.account_overview = {
+              ...parsedData,
+              dataPoints: uniquePoints.sort((a, b) => 
+                new Date(a.date).getTime() - new Date(b.date).getTime()
+              )
+            }
+          } else {
+            multiData.account_overview = parsedData
+          }
+          break
           
         case 'account_overview':
           // Twitter account_overview va a content también

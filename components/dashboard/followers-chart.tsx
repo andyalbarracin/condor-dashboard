@@ -1,8 +1,8 @@
 /**
  * File: followers-chart.tsx
  * Path: /components/dashboard/followers-chart.tsx
- * Last Modified: 2025-12-08
- * Description: Gráfico de evolución de followers con date picker y estadísticas
+ * Last Modified: 2026-03-09
+ * Description: Gráfico de followers SIN growth rate (no se puede calcular)
  */
 
 "use client"
@@ -62,21 +62,16 @@ export function FollowersChart({ data }: FollowersChartProps) {
   }, [data, dateRange])
   
   const stats = useMemo(() => {
-    if (filteredData.length === 0) return { total: 0, organic: 0, sponsored: 0, growth: 0 }
+    if (filteredData.length === 0) return { total: 0, organic: 0, sponsored: 0 }
     
     const totalGained = filteredData.reduce((sum, d) => sum + d.total_followers, 0)
     const organicGained = filteredData.reduce((sum, d) => sum + d.organic_followers, 0)
     const sponsoredGained = filteredData.reduce((sum, d) => sum + d.sponsored_followers, 0)
     
-    const firstDay = filteredData[0]?.total_followers || 0
-    const lastDay = filteredData[filteredData.length - 1]?.total_followers || 0
-    const growth = firstDay > 0 ? ((lastDay - firstDay) / firstDay) * 100 : 0
-    
     return {
       total: totalGained,
       organic: organicGained,
       sponsored: sponsoredGained,
-      growth: growth
     }
   }, [filteredData])
   
@@ -112,7 +107,7 @@ export function FollowersChart({ data }: FollowersChartProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="p-4 rounded-lg bg-card-hover border border-border">
             <div className="flex items-center gap-2 mb-1">
               <Users className="w-4 h-4 text-neutral-500" />
@@ -135,16 +130,6 @@ export function FollowersChart({ data }: FollowersChartProps) {
               <span className="text-xs text-blue-500">Sponsored</span>
             </div>
             <p className="text-2xl font-bold text-blue-500">{stats.sponsored.toLocaleString()}</p>
-          </div>
-          
-          <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-primary" />
-              <span className="text-xs text-primary">Growth Rate</span>
-            </div>
-            <p className="text-2xl font-bold text-primary">
-              {stats.growth > 0 ? '+' : ''}{stats.growth.toFixed(1)}%
-            </p>
           </div>
         </div>
         

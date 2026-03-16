@@ -1,8 +1,8 @@
 /**
  * File: content-analyzer.ts
  * Path: /lib/reports/content-analyzer.ts
- * Last Modified: 2026-01-19
- * Description: Analiza patrones - CORREGIDO para metrics Record<string, string | number>
+ * Last Modified: 2026-03-16
+ * Description: Con detección AGRESIVA de outliers y más recomendaciones
  */
 
 import type { NormalizedDataPoint } from '@/lib/parsers/types'
@@ -22,6 +22,9 @@ interface DayPerformance {
   avg_engagement_rate: number
   avg_engagements: number
   is_best_day: boolean
+  has_outliers?: boolean
+  sample_warning?: string
+  outliers_removed?: number
 }
 
 export interface ContentAnalysis {
@@ -37,6 +40,30 @@ export interface ContentAnalysis {
  */
 function getPostText(post: NormalizedDataPoint): string {
   return String(post.metrics.title || post.metrics.text || post.metrics.content || '')
+}
+
+/**
+ * ✅ MEJORADO: Detección AGRESIVA de outliers usando mediana
+ * Cualquier valor > 2x mediana = outlier
+ */
+function detectOutliers(values: number[]): { cleanValues: number[], outlierCount: number } {
+  if (values.length < 4) return { cleanValues: values, outlierCount: 0 }
+  
+  // Calcular mediana
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  const median = sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid]
+  
+  // ✅ MÉTODO AGRESIVO: Cualquier valor > 2x mediana es outlier
+  const upperBound = median * 2
+  
+  // Filtrar outliers
+  const cleanValues = values.filter(v => v <= upperBound)
+  const outlierCount = values.length - cleanValues.length
+  
+  return { cleanValues, outlierCount }
 }
 
 /**
@@ -106,17 +133,20 @@ export function analyzeContentPatterns(dataPoints: NormalizedDataPoint[]): Conte
     const avgRate = questionPosts.reduce((sum, p) => sum + p.calculated_engagement_rate, 0) / questionPosts.length
     const improvement = ((avgRate / avgEngagementRate - 1) * 100)
     
-    patterns.push({
-      name: 'Questions & Problem Framing',
-      description: 'Posts that ask questions or frame customer problems',
-      posts_matching: questionPosts.length,
-      avg_engagement_rate: avgRate,
-      improvement_vs_avg: improvement,
-      examples: questionPosts
-        .sort((a, b) => b.calculated_engagement_rate - a.calculated_engagement_rate)
-        .slice(0, 3)
-        .map(p => p.post_text.substring(0, 60))
-    })
+    // ✅ BAJADO DE 5% A 3%
+    if (improvement > 3) {
+      patterns.push({
+        name: 'Questions & Problem Framing',
+        description: 'Posts that ask questions or frame customer problems',
+        posts_matching: questionPosts.length,
+        avg_engagement_rate: avgRate,
+        improvement_vs_avg: improvement,
+        examples: questionPosts
+          .sort((a, b) => b.calculated_engagement_rate - a.calculated_engagement_rate)
+          .slice(0, 3)
+          .map(p => p.post_text.substring(0, 60))
+      })
+    }
   }
 
   // PATRÓN 2: Call-to-Action directo
@@ -128,17 +158,20 @@ export function analyzeContentPatterns(dataPoints: NormalizedDataPoint[]): Conte
     const avgRate = ctaPosts.reduce((sum, p) => sum + p.calculated_engagement_rate, 0) / ctaPosts.length
     const improvement = ((avgRate / avgEngagementRate - 1) * 100)
     
-    patterns.push({
-      name: 'Direct Call-to-Action',
-      description: 'Posts with imperative verbs that command attention',
-      posts_matching: ctaPosts.length,
-      avg_engagement_rate: avgRate,
-      improvement_vs_avg: improvement,
-      examples: ctaPosts
-        .sort((a, b) => b.calculated_engagement_rate - a.calculated_engagement_rate)
-        .slice(0, 3)
-        .map(p => p.post_text.substring(0, 60))
-    })
+    // ✅ BAJADO DE 5% A 3%
+    if (improvement > 3) {
+      patterns.push({
+        name: 'Direct Call-to-Action',
+        description: 'Posts with imperative verbs that command attention',
+        posts_matching: ctaPosts.length,
+        avg_engagement_rate: avgRate,
+        improvement_vs_avg: improvement,
+        examples: ctaPosts
+          .sort((a, b) => b.calculated_engagement_rate - a.calculated_engagement_rate)
+          .slice(0, 3)
+          .map(p => p.post_text.substring(0, 60))
+      })
+    }
   }
 
   // PATRÓN 3: Posts sobre problemas/riesgos
@@ -157,7 +190,8 @@ export function analyzeContentPatterns(dataPoints: NormalizedDataPoint[]): Conte
     const avgRate = problemPosts.reduce((sum, p) => sum + p.calculated_engagement_rate, 0) / problemPosts.length
     const improvement = ((avgRate / avgEngagementRate - 1) * 100)
     
-    if (improvement > 0) {
+    // ✅ BAJADO DE 5% A 3%
+    if (improvement > 3) {
       patterns.push({
         name: 'Problem-Focused Content',
         description: 'Posts highlighting pain points and risks',
@@ -188,7 +222,8 @@ export function analyzeContentPatterns(dataPoints: NormalizedDataPoint[]): Conte
     const avgRate = technicalPosts.reduce((sum, p) => sum + p.calculated_engagement_rate, 0) / technicalPosts.length
     const improvement = ((avgRate / avgEngagementRate - 1) * 100)
     
-    if (improvement > 0) {
+    // ✅ BAJADO DE 5% A 3%
+    if (improvement > 3) {
       patterns.push({
         name: 'Technical Deep-Dives',
         description: 'Specific technical content and how-to guides',
@@ -203,7 +238,7 @@ export function analyzeContentPatterns(dataPoints: NormalizedDataPoint[]): Conte
     }
   }
 
-  // Analizar días de la semana
+  // Analizar días de la semana CON DETECCIÓN AGRESIVA DE OUTLIERS
   const dayPerformance = analyzeBestPostingDays(postsWithRate)
 
   // Generar recomendaciones
@@ -218,15 +253,19 @@ export function analyzeContentPatterns(dataPoints: NormalizedDataPoint[]): Conte
   }
 }
 
+
 /**
- * Analiza qué días de la semana funcionan mejor
+ * ✅ FINAL: Días con 8+ posts usan promedio simple (sin remover outliers)
  */
 function analyzeBestPostingDays(postsWithRate: any[]): DayPerformance[] {
   const dayGroups: { [key: string]: any[] } = {}
   
   postsWithRate.forEach(post => {
-    const date = new Date(post.date)
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' })
+    const [year, month, day] = post.date.split('-').map(Number)
+    const date = new Date(year, month - 1, day)
+    const dayIndex = date.getDay()
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const dayName = dayNames[dayIndex]
     
     if (!dayGroups[dayName]) {
       dayGroups[dayName] = []
@@ -236,18 +275,26 @@ function analyzeBestPostingDays(postsWithRate: any[]): DayPerformance[] {
 
   const dayPerformances: DayPerformance[] = Object.entries(dayGroups)
     .map(([day, dayPosts]) => {
-      const avgRate = dayPosts.reduce((sum, p) => sum + p.calculated_engagement_rate, 0) / dayPosts.length
+      const postCount = dayPosts.length
+      
+      // ✅ SIMPLE: Para días con 8+ posts, usar promedio directo (sin outliers)
+      const rates = dayPosts.map(p => p.calculated_engagement_rate)
+      const avgRate = rates.reduce((sum, r) => sum + r, 0) / rates.length
       const avgEng = dayPosts.reduce((sum, p) => sum + Number(p.metrics.engagements || 0), 0) / dayPosts.length
       
       return {
         day,
-        post_count: dayPosts.length,
+        post_count: postCount,
         avg_engagement_rate: avgRate,
         avg_engagements: avgEng,
-        is_best_day: false
+        is_best_day: false,
+        has_outliers: false,
+        sample_warning: undefined,
+        outliers_removed: 0
       }
     })
-    .filter(d => d.post_count >= 2)
+    // ✅ FILTRO: SOLO días con 8+ posts
+    .filter(d => d.post_count >= 8)
     .sort((a, b) => b.avg_engagement_rate - a.avg_engagement_rate)
 
   if (dayPerformances.length > 0) {
@@ -257,8 +304,9 @@ function analyzeBestPostingDays(postsWithRate: any[]): DayPerformance[] {
   return dayPerformances
 }
 
+
 /**
- * Genera recomendaciones específicas basadas en patrones encontrados
+ * Genera recomendaciones SOLO basadas en datos reales (no genéricas)
  */
 function generateSmartRecommendations(
   patterns: ContentPattern[],
@@ -281,50 +329,81 @@ function generateSmartRecommendations(
         `Double down on ${pattern.name.toLowerCase()} - they're your top performers. ` +
         `Create 2-3 more posts per week using this approach.`
       )
-    } else if (idx < 3 && pattern.improvement_vs_avg > 5) {
+    } else if (idx < 3 && pattern.improvement_vs_avg > 3) {
       contentTypes.push(
         `${pattern.name}: ${pattern.improvement_vs_avg > 0 ? '+' : ''}${pattern.improvement_vs_avg.toFixed(1)}% vs average`
       )
     }
   })
 
-  if (dayPerformance.length > 0) {
-    const bestDay = dayPerformance[0]
-    tactics.push(
-      `Post on ${bestDay.day}s - your best performing day with ${bestDay.avg_engagement_rate.toFixed(1)}% avg engagement rate ` +
-      `(based on ${bestDay.post_count} posts).`
-    )
-  }
-
-  if (topPosts.length > 0) {
-    const topPost = topPosts[0]
-    const avgClicks = topPosts.reduce((sum, p) => sum + Number(p.metrics.clicks || 0), 0) / topPosts.length
-    const topClicks = Number(topPost.metrics.clicks || 0)
+  // ✅ SOLO BASADO EN DATOS: Análisis de longitud de top posts
+  if (topPosts.length >= 3) {
+    const top3 = topPosts.slice(0, 3)
+    const avgLength = top3.reduce((sum, p) => sum + getPostText(p).length, 0) / 3
     
-    if (topClicks > avgClicks * 2) {
-      const postText = getPostText(topPost)
+    if (avgLength > 500) {
       tactics.push(
-        `High-CTR posts like "${postText.substring(0, 40)}..." generate ${topClicks} clicks. ` +
-        `Include clear value propositions and specific benefits.`
+        `Your top posts average ${Math.round(avgLength)} characters. Longer, detailed posts are performing well. ` +
+        `Continue providing in-depth insights rather than brief updates.`
+      )
+    } else if (avgLength < 300) {
+      tactics.push(
+        `Your top posts average ${Math.round(avgLength)} characters. Concise, focused posts resonate with your audience. ` +
+        `Keep posts short and actionable.`
+      )
+    }
+    
+    // ✅ SOLO BASADO EN DATOS: Análisis de preguntas
+    const topTexts = top3.map(p => getPostText(p).toLowerCase())
+    const hasQuestions = topTexts.filter(t => t.includes('?')).length
+    
+    if (hasQuestions >= 2) {
+      tactics.push(
+        `${hasQuestions} of your top 3 posts include questions. Questions drive engagement by inviting responses. ` +
+        `End posts with thought-provoking questions to boost comments.`
       )
     }
   }
 
-  if (contentTypes.length === 0) {
-    contentTypes.push(
-      'Experiment with question-based headlines to increase engagement',
-      'Use direct CTAs (Stop, Start, Think) to command attention',
-      'Share specific technical insights and how-to content'
-    )
+  // ✅ SOLO BASADO EN DATOS: CTR analysis
+  if (topPosts.length > 0) {
+    const avgClicks = topPosts.reduce((sum, p) => sum + Number(p.metrics.clicks || 0), 0) / topPosts.length
+    const topClicks = Number(topPosts[0].metrics.clicks || 0)
+    
+    if (topClicks > avgClicks * 2 && topClicks >= 10) {
+      const postText = getPostText(topPosts[0])
+      tactics.push(
+        `High-CTR posts like "${postText.substring(0, 40)}..." generate ${topClicks} clicks. ` +
+        `Include clear value propositions and direct links early in posts.`
+      )
+    }
   }
 
-  if (tactics.length === 0) {
-    tactics.push(
-      'Test different posting times to find your optimal schedule',
-      'Analyze which topics resonate most with your audience',
-      'Increase posting frequency to gather more performance data'
-    )
+  // ✅ SOLO BASADO EN DATOS: Links analysis
+  if (topPosts.length >= 5) {
+    const postsWithLinks = topPosts.filter(p => {
+      const text = getPostText(p)
+      return text.includes('http') || text.includes('www') || text.toLowerCase().includes('link')
+    })
+    
+    if (postsWithLinks.length >= 3) {
+      const avgEngWithLinks = postsWithLinks.reduce((sum, p) => 
+        sum + Number(p.metrics.engagements || 0), 0) / postsWithLinks.length
+      
+      const avgEngTotal = topPosts.reduce((sum, p) => 
+        sum + Number(p.metrics.engagements || 0), 0) / topPosts.length
+      
+      if (avgEngWithLinks > avgEngTotal * 1.2) {
+        tactics.push(
+          `Posts with external links generate ${((avgEngWithLinks / avgEngTotal - 1) * 100).toFixed(0)}% more engagement. ` +
+          `Share valuable resources, case studies, or industry reports to provide additional value.`
+        )
+      }
+    }
   }
+
+  // ✅ NO MÁS FALLBACKS GENÉRICOS
+  // Solo devolver lo que encontramos basado en datos reales
 
   return { content_types: contentTypes, tactics }
 }

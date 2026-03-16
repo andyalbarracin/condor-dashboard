@@ -1,9 +1,8 @@
-
 /**
  * File: twitter-parser.ts
  * Path: /lib/parsers/twitter-parser.ts
- * Last Modified: 2025-12-22
- * Description: Parser para X/Twitter que soporta "Post text" Y "Tweet text"
+ * Last Modified: 2026-03-16
+ * Description: Parser con soporte para Content Y Account Overview
  */
 
 import type { ParserResult, NormalizedDataPoint } from './types'
@@ -81,6 +80,10 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
       }
     }
     
+    // ✅ DETECTAR si es Account Overview (sin posts) o Content (con posts)
+    const isAccountOverview = (idIdx === -1 && textIdx === -1)
+    const subType = isAccountOverview ? 'account_overview' : 'content'
+    
     const dataPoints: NormalizedDataPoint[] = []
     let parsedCount = 0
     let skippedCount = 0
@@ -125,6 +128,7 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
         const bookmarks = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'bookmarks')])
         const shares = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'shares')])
         const new_follows = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'new follows')])
+        const unfollows = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'unfollows')])
         const replies = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'replies')])
         const reposts = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'reposts')])
         const profile_visits = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'profile visits')])
@@ -132,6 +136,8 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
         const url_clicks = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'url clicks')])
         const hashtag_clicks = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'hashtag clicks')])
         const permalink_clicks = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'permalink clicks')])
+        const video_views = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'video views')])
+        const media_views = cleanNumber(fields[headers.findIndex(h => h.toLowerCase() === 'media views')])
         
         const metrics: Record<string, number | string> = {
           post_id: idIdx !== -1 ? fields[idIdx] : '',
@@ -144,6 +150,7 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
           bookmarks,
           shares,
           new_follows,
+          unfollows,
           replies,
           comments: replies,
           reposts,
@@ -152,6 +159,8 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
           url_clicks,
           hashtag_clicks,
           permalink_clicks,
+          video_views,
+          media_views,
         }
         
         const clicks = url_clicks + hashtag_clicks + permalink_clicks
@@ -164,7 +173,7 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
         }
         
         dataPoints.push({
-          id: `twitter-${normalizedDate}-${fields[idIdx] || parsedCount}`,  // ⭐ AGREGAR ESTA LÍNEA
+          id: `twitter-${normalizedDate}-${fields[idIdx] || parsedCount}`,
           date: normalizedDate,
           source: 'twitter',
           metrics,
@@ -191,7 +200,7 @@ export async function parseTwitterCSV(csvContent: string): Promise<ParserResult>
       success: true,
       data: {
         source: 'twitter',
-        subType: 'content',
+        subType: subType,  // ✅ 'content' o 'account_overview'
         dataPoints,
         rawHeaders: headers,
         normalizedHeaders: {},

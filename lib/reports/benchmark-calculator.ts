@@ -1,8 +1,8 @@
 /**
  * File: benchmark-calculator.ts
  * Path: /lib/reports/benchmark-calculator.ts
- * Last Modified: 2026-01-19
- * Description: Multi-industry benchmark + Intelligent Recommendations - CORREGIDO
+ * Last Modified: 2026-03-16
+ * Description: Multi-industry benchmark + Intelligent Recommendations con detección de outliers
  */
 
 import type { ParsedDataset } from '@/lib/parsers/types'
@@ -72,16 +72,8 @@ export function extractPlatformMetrics(data: ParsedDataset, platform: 'linkedin'
   const totalShares = posts.reduce((sum, p) => sum + Number(p.metrics.reposts || p.metrics.shares || 0), 0)
   const totalComments = posts.reduce((sum, p) => sum + Number(p.metrics.comments || 0), 0)
   
-  const engagementRates = posts.map(p => {
-    let rate = Number(p.metrics.engagement_rate || 0)
-    if (rate < 1 && rate > 0) {
-      rate = rate * 100
-    }
-    return rate
-  })
-  
-  const avgEngagementRate = totalPosts > 0 
-    ? (engagementRates.reduce((sum, rate) => sum + rate, 0) / totalPosts) / 100
+  const avgEngagementRate = totalImpressions > 0 
+    ? (totalEngagements / totalImpressions)
     : 0
   
   return {
@@ -323,16 +315,40 @@ export function generateIntelligentRecommendations(
     })
   }
 
+  // ✅ MEJORADO: Usar información de outliers y advertencias
   if (contentAnalysis.best_posting_days.length > 0) {
     const bestDay = contentAnalysis.best_posting_days[0]
     const worstDay = contentAnalysis.best_posting_days[contentAnalysis.best_posting_days.length - 1]
     
+    // ✅ Determinar prioridad según advertencias
+    let priority: 'high' | 'medium' | 'low' = 'high'
+    if (bestDay.sample_warning || (bestDay.has_outliers && bestDay.outliers_removed! >= 2)) {
+      priority = 'medium'  // Bajar prioridad si hay advertencias
+    }
+    
+    // ✅ Construir descripción con advertencias
+    let description = `${bestDay.day}s outperform ${worstDay.day}s by ${((bestDay.avg_engagement_rate / worstDay.avg_engagement_rate - 1) * 100).toFixed(0)}%. `
+    
+    // Agregar advertencias si existen
+    const warnings = []
+    if (bestDay.sample_warning) {
+      warnings.push(bestDay.sample_warning.toLowerCase())
+    }
+    if (bestDay.has_outliers && bestDay.outliers_removed! > 0) {
+      warnings.push(`${bestDay.outliers_removed} outlier${bestDay.outliers_removed! > 1 ? 's' : ''} removed from calculation`)
+    }
+    
+    if (warnings.length > 0) {
+      description += `Note: ${warnings.join(', ')}. `
+    }
+    
+    description += `Schedule your most important content for ${bestDay.day}s.`
+    
     recommendations.push({
-      priority: 'high',
+      priority: priority,
       category: 'posting_schedule',
       title: `Post on ${bestDay.day}s for ${bestDay.avg_engagement_rate.toFixed(1)}% engagement`,
-      description: `${bestDay.day}s outperform ${worstDay.day}s by ${((bestDay.avg_engagement_rate / worstDay.avg_engagement_rate - 1) * 100).toFixed(0)}%. ` +
-        `Schedule your most important content for ${bestDay.day}s.`,
+      description: description,
       data_source: `Based on ${bestDay.post_count} ${bestDay.day} posts`,
       actionable_steps: [
         `Schedule 60% of posts on ${bestDay.day}s`,
