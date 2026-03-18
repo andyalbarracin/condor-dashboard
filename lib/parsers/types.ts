@@ -1,8 +1,9 @@
 /**
  * File: types.ts
  * Path: /lib/parsers/types.ts
- * Last Modified: 2026-02-02
- * Description: Types con MultiDataset support para followers/visitors/content
+ * Last Modified: 2026-03-18
+ * Description: Types con MultiDataset support para followers/visitors/content/google_analytics
+ *              FIX: Added google_analytics to MultiDataset + GA4 subTypes to ParsedDataset
  */
 
 export interface NormalizedDataPoint {
@@ -10,15 +11,15 @@ export interface NormalizedDataPoint {
   date: string
   source: "linkedin" | "twitter" | "instagram" | "tiktok" | "google-analytics"
   metrics: Record<string, number | string>
-  metadata?: Record<string, any> // ✅ Para guardar title, content, link
+  metadata?: Record<string, any> // Para guardar title, content, link
 }
 
-// ✅ Alias para simplificar imports
+// Alias para simplificar imports
 export type DataPoint = NormalizedDataPoint
 
 export interface ParsedDataset {
   source: "linkedin" | "twitter" | "instagram" | "tiktok" | "google-analytics"
-  subType?: "content" | "followers" | "visitors" | "account_overview"
+  subType?: "content" | "followers" | "visitors" | "account_overview" | "utm_campaigns" | "traffic_sources"
   dataPoints: NormalizedDataPoint[]
   rawHeaders: string[]
   metadata?: Record<string, any> 
@@ -29,25 +30,25 @@ export interface ParsedDataset {
   }
 }
 
-// ⭐ NUEVO: MultiDataset interface para guardar múltiples tipos de datos
+// MultiDataset interface para guardar múltiples tipos de datos
 export interface MultiDataset {
-  content?: ParsedDataset      // Posts de LinkedIn/Twitter
-  followers?: ParsedDataset    // LinkedIn followers
-  visitors?: ParsedDataset     // LinkedIn visitors
-  account_overview?: ParsedDataset  // ✅ NUEVO
-
+  content?: ParsedDataset           // Posts de LinkedIn/Twitter
+  followers?: ParsedDataset         // LinkedIn followers
+  visitors?: ParsedDataset          // LinkedIn visitors
+  account_overview?: ParsedDataset  // Twitter account overview
+  google_analytics?: ParsedDataset  // GA4 UTM campaigns / traffic sources
   
   // Metadatos agregados
   lastUpdated?: string
   platforms?: string[]
 }
 
-// ⭐ NUEVO: Helper function para detectar formato
+// Helper function para detectar formato
 export function isMultiDataset(data: any): data is MultiDataset {
   if (!data || typeof data !== 'object') return false
   
   // Si tiene alguna de estas keys, es MultiDataset
-  return 'content' in data || 'followers' in data || 'visitors' in data
+  return 'content' in data || 'followers' in data || 'visitors' in data || 'google_analytics' in data
 }
 
 export interface ParserResult {
