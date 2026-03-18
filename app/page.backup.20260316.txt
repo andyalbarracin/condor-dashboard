@@ -1,10 +1,8 @@
 /**
  * File: page.tsx
  * Path: /app/page.tsx
- * Last Modified: 2026-03-18
- * Description: Dashboard principal con soporte para GA4 + Social data independientes.
- *              FIX BUG #2: Smart initial tab redirect (one-time, no loop)
- *              FIX BUG #3 (dashboard side): Lee google_analytics del MultiDataset
+ * Last Modified: 2026-02-02
+ * Description: Dashboard principal con multi-dataset support, date range y Weekly Summary
  */
 
 "use client"
@@ -100,10 +98,9 @@ function SearchParamsHandler({
     const tabParam = searchParams.get("tab")
     if (tabParam && ["overview", "social", "web"].includes(tabParam)) {
       setActiveTab(tabParam as "overview" | "social" | "web")
+    } else if (!tabParam) {
+      setActiveTab("overview")
     }
-    // NOTE: Removed the "else if (!tabParam) setActiveTab('overview')" clause
-    // to allow smart initial tab selection from data loading useEffect.
-    // The default is already "overview" from useState initial value.
   }, [searchParams, setActiveTab])
 
   return null
@@ -113,7 +110,6 @@ function DashboardContent() {
   const router = useRouter()
   const [hasData, setHasData] = useState(false)
   const [allData, setAllData] = useState<ParsedDataset[]>([])
-  const [gaData, setGaData] = useState<ParsedDataset | null>(null)
   const [followersData, setFollowersData] = useState<ParsedDataset | null>(null)
   const [visitorsData, setVisitorsData] = useState<ParsedDataset | null>(null)
   const [activeTab, setActiveTab] = useState<"overview" | "social" | "web">("overview")
@@ -128,16 +124,12 @@ function DashboardContent() {
       try {
         const parsed = JSON.parse(stored)
         
-        let hasContent = false
-        let hasGA = false
-        
         if (isMultiDataset(parsed)) {
           const multi = parsed as MultiDataset
           
           if (multi.content) {
             setAllData([multi.content])
             setHasData(true)
-            hasContent = true
           }
           if (multi.followers) {
             setFollowersData(multi.followers)
@@ -145,25 +137,10 @@ function DashboardContent() {
           if (multi.visitors) {
             setVisitorsData(multi.visitors)
           }
-          if (multi.google_analytics) {
-            setGaData(multi.google_analytics)
-            setHasData(true)
-            hasGA = true
-          }
         } else {
-          // Legacy format (single dataset)
           setAllData([parsed])
           setHasData(true)
-          hasContent = true
         }
-        
-        // Smart initial tab: if only GA4 data and no explicit tab in URL, go to web
-        const urlParams = new URLSearchParams(window.location.search)
-        if (!urlParams.get('tab') && !hasContent && hasGA) {
-          setActiveTab('web')
-          router.replace('/?tab=web')
-        }
-        
       } catch (error) {
         console.error("Failed to load stored data:", error)
       }
@@ -198,7 +175,6 @@ function DashboardContent() {
     }
   }
 
-  // Social data: filter social platforms from content dataset
   const socialData = allData.length > 0 
     ? {
         ...allData[0],
@@ -209,29 +185,20 @@ function DashboardContent() {
       }
     : null
 
+  const webData = allData.length > 0
+    ? {
+        ...allData[0],
+        dataPoints: allData[0].dataPoints.filter((p) => p.source === 'google-analytics')
+      }
+    : null
+
   const filteredSocialData = socialData && socialData.dataPoints.length > 0 
     ? filterByDateRange(socialData, dateRange) 
     : null
 
-  // Web data: use dedicated gaData state (loaded from multi.google_analytics)
-  // Fallback: check if GA4 data was mixed into content (backward compat with old storage format)
-  const cleanWebData = (() => {
-    if (gaData && gaData.dataPoints.length > 0) return gaData
-    
-    if (allData.length > 0) {
-      const webPoints = allData[0].dataPoints.filter(p => p.source === 'google-analytics')
-      if (webPoints.length > 0) {
-        return { ...allData[0], dataPoints: webPoints }
-      }
-    }
-    
-    return null
-  })()
+  const cleanWebData = webData && webData.dataPoints.length > 0 ? webData : null
 
-  // Show outer blank state only when there's truly no data at all
-  const hasAnyData = hasData && (allData.length > 0 || gaData !== null)
-
-  if (!hasAnyData) {
+  if (!hasData || allData.length === 0) {
     return (
       <div className="flex h-screen bg-background overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
@@ -290,41 +257,30 @@ function DashboardContent() {
           <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ height: "calc(100vh - 13rem)" }}>
             <div className="px-8 py-8 min-h-full">
 
-              {activeTab === "overview" && (
-                filteredSocialData ? (
-                  <OverviewTab
+              {activeTab === "overview" && filteredSocialData && (
+                <OverviewTab
+                  data={filteredSocialData}
+                  platform={platform}
+                  dateRange={dateRange}
+                />
+              )}
+
+              {/* ⭐ SOCIAL TAB con Weekly Summary Button */}
+              {activeTab === "social" && filteredSocialData && (
+              <div className="space-y-6">
+                <WeeklySummaryHeader data={filteredSocialData} userName="Andy" />
+                  <SocialTab
                     data={filteredSocialData}
                     platform={platform}
                     dateRange={dateRange}
+                    followersData={followersData}
+                    visitorsData={visitorsData}
                   />
-                ) : (
-                  <BlankState />
-                )
-              )}
-
-              {activeTab === "social" && (
-                filteredSocialData ? (
-                  <div className="space-y-6">
-                    <WeeklySummaryHeader data={filteredSocialData} userName="Andy" />
-                    <SocialTab
-                      data={filteredSocialData}
-                      platform={platform}
-                      dateRange={dateRange}
-                      followersData={followersData}
-                      visitorsData={visitorsData}
-                    />
-                  </div>
-                ) : (
-                  <BlankState />
-                )
+                </div>
               )}
 
               {activeTab === "web" && (
-                cleanWebData ? (
-                  <WebTab data={cleanWebData} />
-                ) : (
-                  <BlankState />
-                )
+                <WebTab data={cleanWebData} />
               )}
 
             </div>

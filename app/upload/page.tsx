@@ -1,8 +1,11 @@
 /**
  * File: page.tsx
  * Path: /app/upload/page.tsx
- * Last Modified: 2026-02-02
- * Description: Upload page con multi-dataset support
+ * Last Modified: 2026-03-18
+ * Description: Upload page con multi-dataset support.
+ *              FIX BUG #3: GA4 data now stored in google_analytics slot (not content).
+ *              Previously, GA4 subTypes (utm_campaigns, traffic_sources) fell to default
+ *              case in switch, overwriting content. Now checks source first.
  */
 
 "use client"
@@ -68,93 +71,126 @@ export default function UploadPage() {
         
         // Migración: Si es formato viejo (single dataset), convertir
         if (existing.dataPoints && !isMultiDataset(existing)) {
-          // Es formato viejo - convertir a MultiDataset
           multiData.content = existing as ParsedDataset
         } else {
-          // Es formato nuevo - usar directamente
           multiData = existing as MultiDataset
         }
       }
       
-      // 2. Agregar nuevo dataset según subType
-      const subType = parsedData.subType || 'content'
-      
-      switch (subType) {
-        case 'content':
-          // Merge con existing content si existe
-          if (multiData.content) {
-            const mergedPoints = [...multiData.content.dataPoints, ...parsedData.dataPoints]
-            const uniquePoints = mergedPoints.filter((point, index, self) => 
-              index === self.findIndex(p => p.id === point.id)
+      // 2. Determinar dónde guardar el nuevo dataset
+      // PRIMERO: Detectar por source (google-analytics va siempre a google_analytics)
+      if (parsedData.source === 'google-analytics') {
+        // GA4 data siempre va al slot google_analytics, sin importar subType
+        if (multiData.google_analytics) {
+          const mergedPoints = [...multiData.google_analytics.dataPoints, ...parsedData.dataPoints]
+          const uniquePoints = mergedPoints.filter((point, index, self) => 
+            index === self.findIndex(p => 
+              p.id && point.id 
+                ? p.id === point.id 
+                : (p.date === point.date && p.source === point.source && JSON.stringify(p.metrics) === JSON.stringify(point.metrics))
             )
-            multiData.content = {
-              ...parsedData,
-              dataPoints: uniquePoints.sort((a, b) => 
-                new Date(a.date).getTime() - new Date(b.date).getTime()
-              )
-            }
-          } else {
-            multiData.content = parsedData
-          }
-          break
-          
-        case 'followers':
-          // Merge con existing followers
-          if (multiData.followers) {
-            const mergedPoints = [...multiData.followers.dataPoints, ...parsedData.dataPoints]
-            const uniquePoints = mergedPoints.filter((point, index, self) => 
-              index === self.findIndex(p => p.id === point.id)
+          )
+          multiData.google_analytics = {
+            ...parsedData,
+            dataPoints: uniquePoints.sort((a, b) => 
+              new Date(a.date).getTime() - new Date(b.date).getTime()
             )
-            multiData.followers = {
-              ...parsedData,
-              dataPoints: uniquePoints.sort((a, b) => 
-                new Date(a.date).getTime() - new Date(b.date).getTime()
-              )
-            }
-          } else {
-            multiData.followers = parsedData
           }
-          break
-          
-        case 'visitors':
-          // Merge con existing visitors
-          if (multiData.visitors) {
-            const mergedPoints = [...multiData.visitors.dataPoints, ...parsedData.dataPoints]
-            const uniquePoints = mergedPoints.filter((point, index, self) => 
-              index === self.findIndex(p => p.id === point.id)
-            )
-            multiData.visitors = {
-              ...parsedData,
-              dataPoints: uniquePoints.sort((a, b) => 
-                new Date(a.date).getTime() - new Date(b.date).getTime()
+        } else {
+          multiData.google_analytics = parsedData
+        }
+      } else {
+        // SEGUNDO: Social media - usar subType
+        const subType = parsedData.subType || 'content'
+        
+        switch (subType) {
+          case 'content':
+            if (multiData.content) {
+              const mergedPoints = [...multiData.content.dataPoints, ...parsedData.dataPoints]
+              const uniquePoints = mergedPoints.filter((point, index, self) => 
+                index === self.findIndex(p => 
+                  p.id && point.id 
+                    ? p.id === point.id 
+                    : (p.date === point.date && p.source === point.source && JSON.stringify(p.metrics) === JSON.stringify(point.metrics))
+                )
               )
+              multiData.content = {
+                ...parsedData,
+                dataPoints: uniquePoints.sort((a, b) => 
+                  new Date(a.date).getTime() - new Date(b.date).getTime()
+                )
+              }
+            } else {
+              multiData.content = parsedData
             }
-          } else {
-            multiData.visitors = parsedData
-          }
-          break
+            break
+            
+          case 'followers':
+            if (multiData.followers) {
+              const mergedPoints = [...multiData.followers.dataPoints, ...parsedData.dataPoints]
+              const uniquePoints = mergedPoints.filter((point, index, self) => 
+                index === self.findIndex(p => 
+                  p.id && point.id 
+                    ? p.id === point.id 
+                    : (p.date === point.date && p.source === point.source && JSON.stringify(p.metrics) === JSON.stringify(point.metrics))
+                )
+              )
+              multiData.followers = {
+                ...parsedData,
+                dataPoints: uniquePoints.sort((a, b) => 
+                  new Date(a.date).getTime() - new Date(b.date).getTime()
+                )
+              }
+            } else {
+              multiData.followers = parsedData
+            }
+            break
+            
+          case 'visitors':
+            if (multiData.visitors) {
+              const mergedPoints = [...multiData.visitors.dataPoints, ...parsedData.dataPoints]
+              const uniquePoints = mergedPoints.filter((point, index, self) => 
+                index === self.findIndex(p => 
+                  p.id && point.id 
+                    ? p.id === point.id 
+                    : (p.date === point.date && p.source === point.source && JSON.stringify(p.metrics) === JSON.stringify(point.metrics))
+                )
+              )
+              multiData.visitors = {
+                ...parsedData,
+                dataPoints: uniquePoints.sort((a, b) => 
+                  new Date(a.date).getTime() - new Date(b.date).getTime()
+                )
+              }
+            } else {
+              multiData.visitors = parsedData
+            }
+            break
 
           case 'account_overview':
-          // ✅ NUEVO: Guardar account overview de Twitter
-          if (multiData.account_overview) {
-            const mergedPoints = [...multiData.account_overview.dataPoints, ...parsedData.dataPoints]
-            const uniquePoints = mergedPoints.filter((point, index, self) => 
-              index === self.findIndex(p => p.id === point.id)
-            )
-            multiData.account_overview = {
-              ...parsedData,
-              dataPoints: uniquePoints.sort((a, b) => 
-                new Date(a.date).getTime() - new Date(b.date).getTime()
+            if (multiData.account_overview) {
+              const mergedPoints = [...multiData.account_overview.dataPoints, ...parsedData.dataPoints]
+              const uniquePoints = mergedPoints.filter((point, index, self) => 
+                index === self.findIndex(p => 
+                  p.id && point.id 
+                    ? p.id === point.id 
+                    : (p.date === point.date && p.source === point.source && JSON.stringify(p.metrics) === JSON.stringify(point.metrics))
+                )
               )
+              multiData.account_overview = {
+                ...parsedData,
+                dataPoints: uniquePoints.sort((a, b) => 
+                  new Date(a.date).getTime() - new Date(b.date).getTime()
+                )
+              }
+            } else {
+              multiData.account_overview = parsedData
             }
-          } else {
-            multiData.account_overview = parsedData
-          }
-          break
-          
-        default:
-          // Fallback: poner en content
-          multiData.content = parsedData
+            break
+            
+          default:
+            multiData.content = parsedData
+        }
       }
       
       // 3. Actualizar metadata
@@ -162,10 +198,20 @@ export default function UploadPage() {
       multiData.platforms = Array.from(new Set([
         ...(multiData.content?.dataPoints.map(p => p.source) || []),
         ...(multiData.followers?.dataPoints.map(p => p.source) || []),
-        ...(multiData.visitors?.dataPoints.map(p => p.source) || [])
+        ...(multiData.visitors?.dataPoints.map(p => p.source) || []),
+        ...(multiData.google_analytics?.dataPoints.map(p => p.source) || [])
       ]))
       
-      // 4. Guardar
+      console.log('✅ Data saved successfully:', {
+        content: multiData.content?.dataPoints.length || 0,
+        followers: multiData.followers?.dataPoints.length || 0,
+        visitors: multiData.visitors?.dataPoints.length || 0,
+        account_overview: multiData.account_overview?.dataPoints.length || 0,
+        google_analytics: multiData.google_analytics?.dataPoints.length || 0,
+        platforms: multiData.platforms
+      })
+      
+      // 4. Guardar (preservando TODOS los datasets)
       localStorage.setItem("condor_analytics_data", JSON.stringify(multiData))
       
       // 5. Redirect

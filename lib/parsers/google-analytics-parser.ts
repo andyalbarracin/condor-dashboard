@@ -157,12 +157,12 @@ function parseUTMCampaignsFormat(lines: string[]): ParsedDataset {
   
   // Buscar fechas en comentarios
   for (const line of lines) {
-    if (line.includes('Start date:')) {
+    if (line.includes('Start date:') || line.match(/# \d{8}/)) {
       const match = line.match(/(\d{8})/)
       if (match) startDate = match[1]
     }
-    if (line.includes('End date:')) {
-      const match = line.match(/(\d{8})/)
+    if (line.includes('End date:') || line.match(/-(\d{8})/)) {
+      const match = line.match(/-(\d{8})/)
       if (match) endDate = match[1]
     }
   }
@@ -183,10 +183,11 @@ function parseUTMCampaignsFormat(lines: string[]): ParsedDataset {
   const headerLine = lines[headerIndex]
   const headers = headerLine.split(',').map(h => h.trim())
   
-  // Índices de columnas
+  // ✅ NUEVO: Buscar también "Session campaign ID"
   const colIndexes = {
     sourceMedium: headers.findIndex(h => h.toLowerCase().includes('session source')),
-    campaign: headers.findIndex(h => h.toLowerCase().includes('session campaign')),
+    campaign: headers.findIndex(h => h.toLowerCase().includes('session campaign') && !h.toLowerCase().includes('id')),
+    campaignId: headers.findIndex(h => h.toLowerCase().includes('campaign id')),
     sessions: headers.findIndex(h => h.toLowerCase() === 'sessions')
   }
   
@@ -199,13 +200,14 @@ function parseUTMCampaignsFormat(lines: string[]): ParsedDataset {
   
   for (let i = headerIndex + 1; i < lines.length; i++) {
     const line = lines[i].trim()
-    if (!line || line.startsWith('#')) continue
+    if (!line || line.startsWith('#') || line.includes('Grand total')) continue
     
     const fields = line.split(',')
     if (fields.length < 3) continue
     
     const sourceMediumRaw = fields[colIndexes.sourceMedium]?.trim() || ''
     const campaignRaw = colIndexes.campaign !== -1 ? fields[colIndexes.campaign]?.trim() : ''
+    const campaignIdRaw = colIndexes.campaignId !== -1 ? fields[colIndexes.campaignId]?.trim() : '' // ✅ NUEVO
     const sessionsStr = fields[colIndexes.sessions]?.trim()
     const sessions = parseInt(sessionsStr) || 0
     
@@ -224,12 +226,13 @@ function parseUTMCampaignsFormat(lines: string[]): ParsedDataset {
     }
     
     const campaign = campaignRaw || '(not set)'
+    const campaignId = campaignIdRaw || '(not set)' // ✅ NUEVO
     
     campaigns.push({
       source,
       medium,
       campaign,
-      campaign_id: '(not set)', // Este formato no tiene campaign_id
+      campaign_id: campaignId, // ✅ AHORA captura el utm_id real
       source_medium: sourceMediumRaw,
       sessions
     })
@@ -242,7 +245,8 @@ function parseUTMCampaignsFormat(lines: string[]): ParsedDataset {
         sessions,
         source,
         medium,
-        campaign
+        campaign,
+        campaign_id: campaignId // ✅ NUEVO
       }
     })
   }
