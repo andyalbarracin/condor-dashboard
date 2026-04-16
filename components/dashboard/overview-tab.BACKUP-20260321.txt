@@ -239,20 +239,9 @@ export function OverviewTab({ data, platform, dateRange, webData }: OverviewTabP
   return (
     <div className="space-y-6">
       {/* Greeting Header */}
-       {/* Greeting Header */}
-      <WeeklySummaryHeader 
-        data={data}
-        webData={webData}
-        userName="Andy"
-        subtitle={
-          data && webInsights
-            ? "Here's your complete analytics overview"
-            : data
-            ? "Here's your social media overview"
-            : "Here's your web analytics overview"
-        }
-        variant={data ? 'overview' : 'web'}
-      />
+      {data && (
+        <WeeklySummaryHeader data={data} userName="Andy" />
+      )}
 
       {/* === SOCIAL SECTION === */}
       {contentKPIs && (
@@ -294,11 +283,11 @@ export function OverviewTab({ data, platform, dateRange, webData }: OverviewTabP
           {/* Heatmap + Platform Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             <div className="lg:col-span-1">
-              <PlatformBreakdownPie data={data!} platform={platform} />
+              <PlatformBreakdownPie data={data} platform={platform} />
             </div>
             <div className="lg:col-span-3">
               <CalendarHeatmap 
-                data={data!} 
+                data={data} 
                 platform={platform} 
                 dateRange={dateRange}
                 onDateClick={handleDateClick}
@@ -306,7 +295,7 @@ export function OverviewTab({ data, platform, dateRange, webData }: OverviewTabP
             </div>
           </div>
 
-          <TopContentTab data={data!} platform={platform} />
+          <TopContentTab data={data} platform={platform} />
         </>
       )}
 

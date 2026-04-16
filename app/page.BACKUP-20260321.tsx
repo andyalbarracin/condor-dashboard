@@ -2,8 +2,8 @@
  * File: page.tsx
  * Path: /app/page.tsx
  * Last Modified: 2026-03-21
- * Description: Dashboard principal. Passes webData to OverviewTab.
- *              Web tab now has its own WeeklySummaryHeader with web-specific text.
+ * Description: Dashboard principal con soporte para GA4 + Social data independientes.
+ *              CHANGE: Pass cleanWebData to OverviewTab, show Overview when any data exists
  */
 
 "use client"
@@ -152,6 +152,7 @@ function DashboardContent() {
           hasContent = true
         }
         
+        // Smart initial tab: if only GA4 data and no explicit tab in URL, go to web
         const urlParams = new URLSearchParams(window.location.search)
         if (!urlParams.get('tab') && !hasContent && hasGA) {
           setActiveTab('web')
@@ -296,12 +297,7 @@ function DashboardContent() {
               {activeTab === "social" && (
                 filteredSocialData ? (
                   <div className="space-y-6">
-                    <WeeklySummaryHeader 
-                      data={filteredSocialData} 
-                      userName="Andy"
-                      subtitle="This is what's happening with your content"
-                      variant="social"
-                    />
+                    <WeeklySummaryHeader data={filteredSocialData} userName="Andy" />
                     <SocialTab
                       data={filteredSocialData}
                       platform={platform}
@@ -317,15 +313,7 @@ function DashboardContent() {
 
               {activeTab === "web" && (
                 cleanWebData ? (
-                  <div className="space-y-6">
-                    <WeeklySummaryHeader 
-                      userName="Andy"
-                      subtitle="Let's check how your website is performing"
-                      variant="web"
-                      webData={cleanWebData}
-                    />
-                    <WebTab data={cleanWebData} />
-                  </div>
+                  <WebTab data={cleanWebData} />
                 ) : (
                   <BlankState />
                 )
