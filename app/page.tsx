@@ -1,9 +1,10 @@
 /**
  * File: page.tsx
  * Path: /app/page.tsx
- * Last Modified: 2026-03-21
- * Description: Dashboard principal. Passes webData to OverviewTab.
- *              Web tab now has its own WeeklySummaryHeader with web-specific text.
+ * Last Modified: 2026-04-16
+ * Description: Dashboard principal. Updated Header to not receive accountName prop
+ *              (Header now fetches user data from Supabase internally via useUserProfile).
+ *              All other logic unchanged from v1.4.
  */
 
 "use client"
@@ -18,11 +19,10 @@ import { BlankState } from "@/components/dashboard/blank-state"
 import { OverviewTab } from "@/components/dashboard/overview-tab"
 import { SocialTab } from "@/components/dashboard/social-tab"
 import { WebTab } from "@/components/dashboard/web-tab"
-import { WeeklySummaryButton } from "@/components/dashboard/weekly-summary-button"
 import { useSidebarState } from "@/lib/hooks/useSidebarState"
 import type { ParsedDataset } from "@/lib/parsers/types"
 import { isMultiDataset, type MultiDataset } from "@/lib/parsers/types"
-import { WeeklySummaryHeader } from "@/components/dashboard/weekly-summary-header" 
+import { WeeklySummaryHeader } from "@/components/dashboard/weekly-summary-header"
 
 const PlatformContext = createContext<{
   platform: string
@@ -32,16 +32,12 @@ const PlatformContext = createContext<{
   setPlatform: () => {},
 })
 
-function usePlatform() {
-  return useContext(PlatformContext)
-}
-
 function filterByDateRange(data: ParsedDataset, dateRange: string): ParsedDataset {
   if (!data.dataPoints || data.dataPoints.length === 0) return data
-  
-  const dates = data.dataPoints.map(p => new Date(p.date).getTime())
+
+  const dates = data.dataPoints.map((p) => new Date(p.date).getTime())
   const mostRecentDate = new Date(Math.max(...dates))
-  
+
   let startDate = new Date(mostRecentDate)
 
   switch (dateRange) {
@@ -67,14 +63,12 @@ function filterByDateRange(data: ParsedDataset, dateRange: string): ParsedDatase
       return data
   }
 
-  const filteredDataPoints = data.dataPoints.filter(point => {
+  const filteredDataPoints = data.dataPoints.filter((point) => {
     const pointDate = new Date(point.date)
     return pointDate >= startDate && pointDate <= mostRecentDate
   })
 
-  if (filteredDataPoints.length === 0) {
-    return data
-  }
+  if (filteredDataPoints.length === 0) return data
 
   return {
     ...data,
@@ -123,24 +117,20 @@ function DashboardContent() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
-        
+
         let hasContent = false
         let hasGA = false
-        
+
         if (isMultiDataset(parsed)) {
           const multi = parsed as MultiDataset
-          
+
           if (multi.content) {
             setAllData([multi.content])
             setHasData(true)
             hasContent = true
           }
-          if (multi.followers) {
-            setFollowersData(multi.followers)
-          }
-          if (multi.visitors) {
-            setVisitorsData(multi.visitors)
-          }
+          if (multi.followers) setFollowersData(multi.followers)
+          if (multi.visitors) setVisitorsData(multi.visitors)
           if (multi.google_analytics) {
             setGaData(multi.google_analytics)
             setHasData(true)
@@ -151,13 +141,12 @@ function DashboardContent() {
           setHasData(true)
           hasContent = true
         }
-        
+
         const urlParams = new URLSearchParams(window.location.search)
-        if (!urlParams.get('tab') && !hasContent && hasGA) {
-          setActiveTab('web')
-          router.replace('/?tab=web')
+        if (!urlParams.get("tab") && !hasContent && hasGA) {
+          setActiveTab("web")
+          router.replace("/?tab=web")
         }
-        
       } catch (error) {
         console.error("Failed to load stored data:", error)
       }
@@ -185,37 +174,36 @@ function DashboardContent() {
 
   const handleTabChange = (tab: "overview" | "social" | "web") => {
     setActiveTab(tab)
-    if (tab === "overview") {
-      router.push("/")
-    } else {
-      router.push(`/?tab=${tab}`)
-    }
+    router.push(tab === "overview" ? "/" : `/?tab=${tab}`)
   }
 
-  const socialData = allData.length > 0 
-    ? {
-        ...allData[0],
-        dataPoints: allData[0].dataPoints.filter((p) => 
-          p.source === 'linkedin' || p.source === 'twitter' || 
-          p.source === 'instagram' || p.source === 'tiktok'
-        )
-      }
-    : null
+  const socialData =
+    allData.length > 0
+      ? {
+          ...allData[0],
+          dataPoints: allData[0].dataPoints.filter(
+            (p) =>
+              p.source === "linkedin" ||
+              p.source === "twitter" ||
+              p.source === "instagram" ||
+              p.source === "tiktok"
+          ),
+        }
+      : null
 
-  const filteredSocialData = socialData && socialData.dataPoints.length > 0 
-    ? filterByDateRange(socialData, dateRange) 
-    : null
+  const filteredSocialData =
+    socialData && socialData.dataPoints.length > 0
+      ? filterByDateRange(socialData, dateRange)
+      : null
 
   const cleanWebData = (() => {
     if (gaData && gaData.dataPoints.length > 0) return gaData
-    
     if (allData.length > 0) {
-      const webPoints = allData[0].dataPoints.filter(p => p.source === 'google-analytics')
-      if (webPoints.length > 0) {
-        return { ...allData[0], dataPoints: webPoints }
-      }
+      const webPoints = allData[0].dataPoints.filter(
+        (p) => p.source === "google-analytics"
+      )
+      if (webPoints.length > 0) return { ...allData[0], dataPoints: webPoints }
     }
-    
     return null
   })()
 
@@ -232,7 +220,8 @@ function DashboardContent() {
             width: sidebarOpen ? "calc(100vw - 16rem)" : "calc(100vw - 5rem)",
           }}
         >
-          <Header accountName="Asentria" />
+          {/* ✅ Header no recibe accountName — usa useUserProfile internamente */}
+          <Header />
           <div className="flex-1 overflow-y-auto">
             <div className="px-8 py-8 min-h-full">
               <BlankState />
@@ -249,7 +238,7 @@ function DashboardContent() {
       <Suspense fallback={null}>
         <SearchParamsHandler activeTab={activeTab} setActiveTab={setActiveTab} />
       </Suspense>
-      
+
       <div className="flex h-screen bg-background overflow-hidden">
         <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 
@@ -261,7 +250,8 @@ function DashboardContent() {
           }}
         >
           <div className="sticky top-0 z-30 bg-background">
-            <Header accountName="Asentria" />
+            {/* ✅ Header no recibe accountName */}
+            <Header />
           </div>
 
           <div className="sticky top-16 z-20 bg-background">
@@ -277,11 +267,13 @@ function DashboardContent() {
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ height: "calc(100vh - 13rem)" }}>
+          <div
+            className="flex-1 overflow-y-auto overflow-x-hidden"
+            style={{ height: "calc(100vh - 13rem)" }}
+          >
             <div className="px-8 py-8 min-h-full">
-
-              {activeTab === "overview" && (
-                (filteredSocialData || cleanWebData) ? (
+              {activeTab === "overview" &&
+                (filteredSocialData || cleanWebData ? (
                   <OverviewTab
                     data={filteredSocialData}
                     platform={platform}
@@ -290,14 +282,13 @@ function DashboardContent() {
                   />
                 ) : (
                   <BlankState />
-                )
-              )}
+                ))}
 
-              {activeTab === "social" && (
-                filteredSocialData ? (
+              {activeTab === "social" &&
+                (filteredSocialData ? (
                   <div className="space-y-6">
-                    <WeeklySummaryHeader 
-                      data={filteredSocialData} 
+                    <WeeklySummaryHeader
+                      data={filteredSocialData}
                       userName="Andy"
                       subtitle="This is what's happening with your content"
                       variant="social"
@@ -312,13 +303,12 @@ function DashboardContent() {
                   </div>
                 ) : (
                   <BlankState />
-                )
-              )}
+                ))}
 
-              {activeTab === "web" && (
-                cleanWebData ? (
+              {activeTab === "web" &&
+                (cleanWebData ? (
                   <div className="space-y-6">
-                    <WeeklySummaryHeader 
+                    <WeeklySummaryHeader
                       userName="Andy"
                       subtitle="Let's check how your website is performing"
                       variant="web"
@@ -328,9 +318,7 @@ function DashboardContent() {
                   </div>
                 ) : (
                   <BlankState />
-                )
-              )}
-
+                ))}
             </div>
           </div>
 
@@ -345,7 +333,13 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-screen">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+        </div>
+      }
+    >
       <DashboardContent />
     </Suspense>
   )

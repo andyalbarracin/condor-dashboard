@@ -1,13 +1,14 @@
 /**
  * File: layout.tsx
  * Path: /app/layout.tsx
- * Last Modified: 2026-02-02
- * Description: Root layout con ThemeProvider y fuentes Outfit + DM Sans para Weekly Summary
+ * Last Modified: 2026-04-17
+ * Description: Root layout. Added Montserrat for display headings (auth/landing),
+ *              Outfit for UI, DM Sans for body. Favicon metadata via Next.js API.
  */
 
 import type React from "react"
 import type { Metadata } from "next"
-import { Outfit, DM_Sans } from "next/font/google"
+import { Outfit, DM_Sans, Montserrat } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "next-themes"
 
@@ -23,10 +24,28 @@ const dmSans = DM_Sans({
   display: "swap",
 })
 
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  variable: "--font-montserrat",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  display: "swap",
+})
+
 export const metadata: Metadata = {
-  title: "CONDOR Dashboard",
-  description: "Analytics dashboard for social media and web metrics",
-  generator: "v0.app",
+  title: "CONDOR Analytics",
+  description: "B2B social media intelligence. From data to understanding.",
+  applicationName: "Condor",
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    other: [
+      { rel: "manifest", url: "/site.webmanifest" },
+    ],
+  },
 }
 
 export default function RootLayout({
@@ -36,7 +55,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`bg-background text-foreground ${outfit.variable} ${dmSans.variable}`}>
+      <body
+        className={`bg-background text-foreground ${outfit.variable} ${dmSans.variable} ${montserrat.variable}`}
+      >
         <ThemeProvider attribute="class" defaultTheme="light" storageKey="condor-theme">
           <div className="flex min-h-screen">{children}</div>
         </ThemeProvider>

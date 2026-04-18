@@ -1,143 +1,171 @@
+/**
+ * File: header.tsx
+ * Path: /components/layout/header.tsx
+ * Last Modified: 2026-04-17
+ * Description: "Plans & Billing" → "Plans". Support → Link to /support (not mailto).
+ */
+
 "use client"
 
-import { Moon, Sun, Search, Bell } from "lucide-react"
+import { Moon, Sun, Search, Bell, Settings, HelpCircle, LogOut, Crown, ExternalLink } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useState, useRef, useEffect } from "react"
+import Link from "next/link"
+import { useUserProfile } from "@/lib/hooks/useUserProfile"
+import { signOut } from "@/lib/supabase/client"
 
-interface HeaderProps {
-  accountName?: string
+const PLAN_BADGE_STYLES: Record<string, { bg: string; text: string }> = {
+  starter: { bg: "bg-neutral-100 dark:bg-neutral-700", text: "text-neutral-600 dark:text-neutral-300" },
+  professional: { bg: "bg-blue-50 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400" },
+  agency: { bg: "bg-purple-50 dark:bg-purple-900/30", text: "text-purple-600 dark:text-purple-400" },
+  enterprise: { bg: "bg-amber-50 dark:bg-amber-900/30", text: "text-amber-600 dark:text-amber-400" },
 }
 
-export function Header({ accountName = "Asentria" }: HeaderProps) {
+function HeaderPlanBadge({ planId, planName, role, isTrialing, trialDaysLeft }: {
+  planId: string; planName: string; role: string; isTrialing: boolean; trialDaysLeft: number | null
+}) {
+  if (role === "super_admin") return (
+    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 text-amber-700 dark:text-amber-400">
+      Super Admin
+    </span>
+  )
+  if (role === "admin") return (
+    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center gap-1">
+      <Crown className="w-2.5 h-2.5" />Admin
+    </span>
+  )
+  const style = PLAN_BADGE_STYLES[planId] ?? PLAN_BADGE_STYLES.starter
+  if (isTrialing) {
+    const expiring = trialDaysLeft !== null && trialDaysLeft <= 7
+    return (
+      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${expiring ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" : "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"}`}>
+        {trialDaysLeft !== null ? `Trial · ${trialDaysLeft} days left` : "Trial"}
+      </span>
+    )
+  }
+  return <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${style.bg} ${style.text}`}>{planName}</span>
+}
+
+function HeaderAvatar({ avatarUrl, initials }: { avatarUrl: string | null; initials: string }) {
+  if (avatarUrl) return (
+    <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full object-cover"
+      onError={e => { (e.target as HTMLImageElement).style.display = "none" }} />
+  )
+  return (
+    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-sm font-bold">
+      {initials}
+    </div>
+  )
+}
+
+export function Header() {
   const { theme, setTheme } = useTheme()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
+  const { fullName, email, avatarUrl, initials, role, planId, planName, isTrialing, trialDaysLeft, isLoading } = useUserProfile()
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setIsProfileOpen(false)
-      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) setIsProfileOpen(false)
     }
-
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  const handleSignOut = async () => { setIsProfileOpen(false); await signOut() }
+  const displayName = fullName ?? email ?? "User"
 
   return (
     <header className="sticky top-0 z-40 bg-background border-b border-border">
       <div className="px-8 py-4">
         <div className="flex items-center justify-between gap-8">
-          {/* Left: Search bar */}
+
           <div className="flex-1 max-w-md">
             <div className="relative flex items-center">
               <Search className="absolute left-3 w-4 h-4 text-neutral-500" />
-              <input
-                type="text"
-                placeholder="Search or type command..."
-                className="w-full pl-10 pr-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+              <input type="text" placeholder="Search or type command..."
+                className="w-full pl-10 pr-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-primary" />
               <span className="absolute right-3 text-xs text-neutral-500 bg-card-hover px-2 py-1 rounded">⌘ K</span>
             </div>
           </div>
 
-          {/* Right: Actions */}
-          <div className="flex items-center gap-4">
-            {/* Theme toggle */}
-            <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          <div className="flex items-center gap-3">
+            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="p-2 rounded-lg hover:bg-card-hover transition-colors text-neutral-400 hover:text-foreground"
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            >
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
               {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
 
-            {/* Notifications */}
-            <button
-              className="p-2 rounded-lg hover:bg-card-hover transition-colors text-neutral-400 hover:text-foreground relative"
-              title="Notifications"
-            >
+            <button className="p-2 rounded-lg hover:bg-card-hover transition-colors text-neutral-400 hover:text-foreground relative" title="Notifications">
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full" />
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-orange-500 rounded-full" />
             </button>
 
-            {/* Profile dropdown */}
             <div className="relative" ref={profileRef}>
-              <button
-                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-card-hover transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary to-accent flex items-center justify-center text-white text-sm font-bold">
-                  A
+              <button onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-xl hover:bg-card-hover transition-colors">
+                {isLoading ? <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 animate-pulse" /> : <HeaderAvatar avatarUrl={avatarUrl} initials={initials} />}
+                <div className="hidden sm:block text-left">
+                  <p className="text-sm font-medium text-foreground leading-tight max-w-[120px] truncate">
+                    {isLoading ? "Loading..." : displayName}
+                  </p>
+                  {!isLoading && <HeaderPlanBadge planId={planId} planName={planName} role={role} isTrialing={isTrialing} trialDaysLeft={trialDaysLeft} />}
                 </div>
-                <span className="text-sm font-medium text-foreground hidden sm:inline">{accountName}</span>
-                <svg
-                  className={`w-4 h-4 transition-transform ${isProfileOpen ? "rotate-180" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                <svg className={`w-3.5 h-3.5 text-neutral-400 transition-transform hidden sm:block ${isProfileOpen ? "rotate-180" : ""}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 
               {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b border-border">
-                    <p className="text-sm font-medium text-foreground">{accountName}</p>
-                    <p className="text-xs text-neutral-500 mt-1">user@example.com</p>
+                    <div className="flex items-center gap-3">
+                      <HeaderAvatar avatarUrl={avatarUrl} initials={initials} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+                        {email && <p className="text-xs text-neutral-500 truncate mt-0.5">{email}</p>}
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <HeaderPlanBadge planId={planId} planName={planName} role={role} isTrialing={isTrialing} trialDaysLeft={trialDaysLeft} />
+                    </div>
+                    {isTrialing && role === "user" && trialDaysLeft !== null && trialDaysLeft <= 7 && (
+                      <Link href="/pricing" onClick={() => setIsProfileOpen(false)}
+                        className="mt-2 flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400 hover:underline">
+                        <ExternalLink className="w-3 h-3" />
+                        {trialDaysLeft === 0 ? "Trial expired" : `${trialDaysLeft} days left`} · Upgrade now
+                      </Link>
+                    )}
                   </div>
-                  <div className="py-2">
-                    <button className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-card-hover transition-colors flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                        />
-                      </svg>
-                      Edit Profile
-                    </button>
-                    <button className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-card-hover transition-colors flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31 2.37 2.37a1.724 1.724 0 002.572-1.065z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                      </svg>
+
+                  <div className="py-1.5">
+                    <Link href="/settings" onClick={() => setIsProfileOpen(false)}
+                      className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-card-hover transition-colors flex items-center gap-2.5">
+                      <Settings className="w-4 h-4 text-neutral-400" />
                       Settings
-                    </button>
-                    <button className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-card-hover transition-colors flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M17 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
+                    </Link>
+
+                    {/* Plans — NOT "Plans & Billing" */}
+                    <Link href="/pricing" onClick={() => setIsProfileOpen(false)}
+                      className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-card-hover transition-colors flex items-center gap-2.5">
+                      <Crown className="w-4 h-4 text-neutral-400" />
+                      Plans
+                    </Link>
+
+                    {/* Support → goes to /support PAGE, not mailto */}
+                    <Link href="/support" onClick={() => setIsProfileOpen(false)}
+                      className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-card-hover transition-colors flex items-center gap-2.5">
+                      <HelpCircle className="w-4 h-4 text-neutral-400" />
                       Support
-                    </button>
-                    <hr className="my-2 border-border" />
-                    <button className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-card-hover transition-colors flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                        />
-                      </svg>
-                      Sign Out
+                    </Link>
+
+                    <hr className="my-1 border-border" />
+
+                    <button onClick={handleSignOut}
+                      className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-500/5 transition-colors flex items-center gap-2.5">
+                      <LogOut className="w-4 h-4" />
+                      Sign out
                     </button>
                   </div>
                 </div>

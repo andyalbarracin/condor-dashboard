@@ -87,7 +87,16 @@ const MEDIUM_COLORS = {
   '(unattributable)': '#94a3b8',
 }
 ```
-
+#### Plan Badge Colors
+```javascript
+const PLAN_BADGE_STYLES = {
+  starter:      { dot: 'neutral-400',  bg: 'neutral-100',    text: 'neutral-600'  },  // Nest
+  professional: { dot: 'blue-500',     bg: 'blue-50',        text: 'blue-600'     },  // Flight ⭐
+  agency:       { dot: 'purple-500',   bg: 'purple-50',      text: 'purple-600'   },  // Altitude
+  enterprise:   { dot: 'amber-500',    bg: 'amber-50',       text: 'amber-600'    },  // Apex
+}
+// Keys are plan IDs (unchanged), names displayed from DB: Nest/Flight/Altitude/Apex
+```
 ---
 
 ### Tipografía
