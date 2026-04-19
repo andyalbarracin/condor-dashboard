@@ -1,30 +1,24 @@
 /**
  * File: page.tsx
  * Path: /app/support/page.tsx
- * Last Modified: 2026-04-17
- * Description: CONDOR Support page.
- *   Content: platform download guides (LinkedIn, X, GA4), contact info, FAQ.
- *   Centered layout (max-w-3xl mx-auto). No 404.
- *   TODO: Replace mailto with verified support address before launch.
- *   TODO: Add live chat integration (Intercom / Crisp) for paid plans.
+ * Last Modified: 2026-04-19
+ * Layout fix: Removed max-w-screen-2xl from body sections entirely.
+ *   Body uses px-8 lg:px-16 padding only — guaranteed full viewport width
+ *   regardless of screen size. Same approach that makes the dashboard fill 100%.
  */
 
-import Link from "next/link"
-import { Mail, ExternalLink, BookOpen } from "lucide-react"
+"use client"
 
-const C = {
-  orange: "#ef7800",
-  carbon: "#212121",
-  grey: "#818181",
-  alabaster: "#e0e0e0",
-  white: "#fdfdfd",
-}
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { Mail, BookOpen, ExternalLink, ArrowLeft } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 const PLATFORM_GUIDES = [
   {
-    id: "linkedin",
-    name: "LinkedIn Analytics",
-    accent: "#0a66c2",
+    platform: "LinkedIn Analytics",
+    color: "#0a66c2",
     steps: [
       "Go to your LinkedIn Company Page.",
       "Click Analytics in the top navigation.",
@@ -33,165 +27,239 @@ const PLATFORM_GUIDES = [
       "Click Export → Download as XLS.",
     ],
     note: "Export Content, Followers, and Visitors separately for the best CONDOR experience.",
-    url: "https://www.linkedin.com/company/",
-    urlLabel: "Open LinkedIn →",
+    link: "https://www.linkedin.com/company/",
+    linkLabel: "Open LinkedIn",
   },
   {
-    id: "twitter",
-    name: "X / Twitter Analytics",
-    accent: "#374151",
+    platform: "X / Twitter Analytics",
+    color: "#111111",
     steps: [
       "Go to analytics.twitter.com.",
       "Select the Tweets tab.",
       "Set your desired date range.",
       "Click Export data → Download CSV.",
     ],
-    note: "Export both the Tweets report and Account Overview for complete data.",
-    url: "https://analytics.twitter.com",
-    urlLabel: "Open X Analytics →",
+    note: "The CSV export contains all tweet metrics for the selected period.",
+    link: "https://analytics.twitter.com",
+    linkLabel: "Open X Analytics",
   },
   {
-    id: "ga4",
-    name: "Google Analytics 4",
-    accent: "#ef7800",
+    platform: "Google Analytics 4",
+    color: "#e37400",
     steps: [
-      "Go to analytics.google.com.",
-      "Reports → Acquisition → Traffic acquisition.",
-      "Set your date range at the top right.",
-      "Share → Download file → Download CSV.",
+      "Go to your GA4 property.",
+      "Open Reports → Engagement → Pages and screens.",
+      "Click the Download icon (top right).",
+      "Choose Download CSV.",
+      "Upload the CSV to CONDOR under the Web tab.",
     ],
-    note: "Export with UTM source/medium data for the best results in CONDOR.",
-    url: "https://analytics.google.com",
-    urlLabel: "Open Google Analytics →",
+    note: "Use the date range selector in GA4 before exporting to control the period.",
+    link: "https://analytics.google.com",
+    linkLabel: "Open Google Analytics",
   },
 ]
 
-const FAQ = [
-  { q: "How do I upload my analytics files?", a: "Go to the Upload section in the left sidebar (or click 'Upload File' from the dashboard toolbar). Select your exported file and CONDOR will parse and display it automatically." },
-  { q: "What file formats does CONDOR support?", a: "CONDOR accepts XLS files from LinkedIn (Content, Followers, Visitors) and CSV files from Twitter/X and Google Analytics 4." },
-  { q: "Why is my data not showing after upload?", a: "Make sure you're using the correct export file for each platform. LinkedIn exports should be XLS. If the issue persists, check that your file contains data for the selected date range." },
-  { q: "How do I reset my password?", a: "On the sign in screen, click 'Forgot password?' and enter your email address. You'll receive a reset link within a few minutes." },
-  { q: "How do I change my plan?", a: "Go to Settings → Billing (or visit /pricing) to upgrade, downgrade, or cancel your subscription at any time." },
+const QUICK_ANSWERS = [
+  {
+    q: "My file is not being recognized. What should I do?",
+    a: "Make sure you are uploading the original export from LinkedIn (XLS), X (CSV), or GA4 (CSV) without modifying it in Excel first. Saving in Excel can change the format and break parsing.",
+  },
+  {
+    q: "Can I upload data from multiple accounts?",
+    a: "Yes. Upload LinkedIn, X, and GA4 exports from different periods — they merge automatically. Use the date filter to control the view.",
+  },
+  {
+    q: "My dashboard shows no data after upload.",
+    a: "Refresh the page after upload. If the issue persists, go to Uploads and re-upload the file using the original platform export.",
+  },
+  {
+    q: "How do I reset my data and start over?",
+    a: "Click Clear Data in the dashboard toolbar. This removes all uploaded data from your session so you can upload fresh files.",
+  },
+  {
+    q: "Can I export my charts as images?",
+    a: "Yes. Most chart sections have a PNG or CSV download button. PDF export is available on the Flight plan and above.",
+  },
+  {
+    q: "What does the Intelligent Recommendations section show?",
+    a: "Data-driven suggestions based on your performance vs. industry benchmarks — best posting times, content types that work, and areas to improve.",
+  },
 ]
 
 export default function SupportPage() {
-  return (
-    <div className="min-h-screen" style={{ background: C.white }}>
+  const router = useRouter()
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
 
-      {/* Header */}
-      <header style={{ borderBottom: `1px solid ${C.alabaster}`, background: "#fff" }}>
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+  useEffect(() => {
+    const check = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      setIsLoggedIn(!!user)
+    }
+    check()
+  }, [])
+
+  return (
+    <div className="min-h-screen w-full bg-background">
+
+      {/* HEADER — border-b is full viewport width naturally */}
+      <header className="border-b border-border bg-background">
+        <div className="px-8 lg:px-16 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#f3f3f3" }}>
-              <img src="/condor-logo-v1.png" alt="" width={22} height={22} style={{ objectFit: "contain", mixBlendMode: "multiply" }} />
+            <div className="w-8 h-8 rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center flex-shrink-0">
+              <img src="/condor-logo-v1.png" alt="CONDOR" width={24} height={24}
+                className="object-contain" style={{ mixBlendMode: "multiply" }} />
             </div>
-            <span style={{ fontFamily: "var(--font-montserrat)", fontWeight: 700, fontSize: "0.8rem", letterSpacing: "0.18em", color: C.carbon }}>
-              CONDOR
-            </span>
+            <span className="font-bold text-sm tracking-widest uppercase text-foreground"
+              style={{ fontFamily: "var(--font-montserrat)" }}>CONDOR</span>
           </Link>
-          <Link href="/auth/login" className="text-sm font-medium transition-colors" style={{ color: C.grey }}>
-            Sign in
-          </Link>
+
+          {isLoggedIn === null ? null : isLoggedIn ? (
+            <button onClick={() => router.back()}
+              className="flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-foreground transition-colors">
+              <ArrowLeft className="w-4 h-4" />
+              Back to dashboard
+            </button>
+          ) : (
+            <Link href="/auth/login"
+              className="text-sm text-neutral-500 hover:text-foreground transition-colors">
+              Sign in
+            </Link>
+          )}
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 lg:px-8 py-12">
+      {/* ALL BODY — w-full, no max-w, padding only */}
+      <div className="w-full px-8 lg:px-16">
 
-        {/* Page title — centered */}
-        <div className="text-center mb-12">
-          <p style={{ fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", color: C.grey, marginBottom: "0.6rem" }}>Help & Support</p>
-          <h1 style={{ fontFamily: "var(--font-montserrat)", fontWeight: 700, fontSize: "2rem", color: C.carbon, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
+        {/* Hero */}
+        <div className="pt-10 pb-8 border-b border-border">
+          <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-2">
+            Help &amp; Support
+          </p>
+          <h1 className="text-3xl font-bold text-foreground mb-2"
+            style={{ fontFamily: "var(--font-montserrat)", letterSpacing: "-0.02em" }}>
             How can we help?
           </h1>
-          <p className="text-sm mt-3 leading-relaxed" style={{ color: C.grey }}>
-            Find answers below or reach out directly.
-          </p>
+          <p className="text-sm text-neutral-500">Find answers below or reach out directly.</p>
         </div>
 
-        {/* Contact card */}
-        <div className="rounded-2xl border p-6 mb-10 flex flex-col sm:flex-row items-start sm:items-center gap-5 justify-between"
-          style={{ borderColor: C.alabaster, background: "#fff" }}>
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${C.orange}12` }}>
-              <Mail className="w-5 h-5" style={{ color: C.orange }} />
+        {/* Contact banner */}
+        <div className="py-6">
+          <div className="rounded-2xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(239,120,0,0.1)" }}>
+                <Mail className="w-5 h-5" style={{ color: "#ef7800" }} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Email Support</p>
+                <p className="text-xs text-neutral-500 mt-0.5">support@condoranalytics.app</p>
+                <p className="text-xs text-neutral-500">Response within 1 business day</p>
+              </div>
             </div>
-            <div>
-              <p className="font-semibold text-sm" style={{ color: C.carbon }}>Email Support</p>
-              {/* TODO: Replace with verified support address before launch */}
-              <p className="text-xs mt-0.5" style={{ color: C.grey }}>support@condoranalytics.app</p>
-              <p className="text-xs mt-0.5" style={{ color: C.grey }}>Response within 1 business day</p>
-            </div>
+            <a href="mailto:support@condoranalytics.app"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white flex-shrink-0 hover:opacity-90 transition-opacity"
+              style={{ background: "linear-gradient(135deg, #c44a00, #ef7800)" }}>
+              <Mail className="w-4 h-4" />
+              Contact us
+            </a>
           </div>
-          <a href="mailto:support@condoranalytics.app"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, #c44a00, ${C.orange})` }}>
-            <Mail className="w-4 h-4" />
-            Contact us
-          </a>
         </div>
 
-        {/* Platform guides */}
-        <div className="mb-12">
-          <div className="flex items-center gap-2.5 mb-6">
-            <BookOpen className="w-4 h-4" style={{ color: C.grey }} />
-            <h2 style={{ fontFamily: "var(--font-montserrat)", fontWeight: 600, fontSize: "1rem", color: C.carbon, letterSpacing: "-0.01em" }}>
-              How to download your analytics files
-            </h2>
-          </div>
-          <div className="space-y-4">
-            {PLATFORM_GUIDES.map(p => (
-              <div key={p.id} className="rounded-xl border overflow-hidden" style={{ borderColor: C.alabaster, borderLeftColor: p.accent, borderLeftWidth: "3px" }}>
-                <div className="px-5 py-3 border-b" style={{ borderColor: C.alabaster, background: "#fff" }}>
-                  <span className="font-semibold text-sm" style={{ color: C.carbon }}>{p.name}</span>
-                </div>
-                <div className="px-5 py-4 space-y-3" style={{ background: "#fafafa" }}>
-                  <ol className="space-y-1.5">
-                    {p.steps.map((step, i) => (
-                      <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: C.grey }}>
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
-                          style={{ background: `${p.accent}18`, color: p.accent }}>{i + 1}</span>
-                        {step}
-                      </li>
+        {/* Two-column grid — full remaining width */}
+        <div className="pb-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_440px] gap-10">
+
+            {/* LEFT */}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-6">
+                <BookOpen className="w-4 h-4 text-neutral-400" />
+                <h2 className="font-semibold text-foreground">
+                  How to download your analytics files
+                </h2>
+              </div>
+              <div className="space-y-6">
+                {PLATFORM_GUIDES.map(guide => (
+                  <div key={guide.platform}
+                    className="rounded-2xl border border-border bg-card overflow-hidden">
+                    <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0"
+                        style={{ background: guide.color }} />
+                      <h3 className="font-semibold text-sm text-foreground">{guide.platform}</h3>
+                    </div>
+                    <div className="px-5 py-4">
+                      <ol className="space-y-2.5">
+                        {guide.steps.map((step, i) => (
+                          <li key={i} className="flex items-start gap-3">
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white mt-0.5"
+                              style={{ background: guide.color, opacity: 0.85 }}>
+                              {i + 1}
+                            </span>
+                            <span className="text-sm text-neutral-700 dark:text-neutral-300">
+                              {step}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                      {guide.note && (
+                        <p className="mt-4 text-xs text-neutral-500 italic border-t border-border pt-3">
+                          Note: {guide.note}
+                        </p>
+                      )}
+                      <a href={guide.link} target="_blank" rel="noopener noreferrer"
+                        className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold hover:opacity-80 transition-opacity"
+                        style={{ color: guide.color }}>
+                        {guide.linkLabel}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT */}
+            <div className="flex-shrink-0">
+              <div className="lg:sticky lg:top-6 space-y-6">
+                <div>
+                  <h2 className="font-semibold text-foreground mb-4">Quick answers</h2>
+                  <div className="space-y-3">
+                    {QUICK_ANSWERS.map((item, idx) => (
+                      <div key={idx} className="rounded-xl border border-border bg-card p-4">
+                        <p className="text-sm font-semibold text-foreground mb-1.5">{item.q}</p>
+                        <p className="text-xs text-neutral-500 leading-relaxed">{item.a}</p>
+                      </div>
                     ))}
-                  </ol>
-                  {p.note && (
-                    <p className="text-xs italic pt-2" style={{ color: C.grey, borderTop: `1px solid ${C.alabaster}` }}>
-                      Note: {p.note}
-                    </p>
-                  )}
-                  <a href={p.url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: p.accent }}>
-                    {p.urlLabel} <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-card p-5">
+                  <p className="text-sm font-semibold text-foreground mb-1">Need more features?</p>
+                  <p className="text-xs text-neutral-500 leading-relaxed mb-4">
+                    Upgrade to Flight or Altitude for PDF reports, AI insights, more platforms, and team tools.
+                  </p>
+                  <Link href="/pricing"
+                    className="w-full block text-center py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+                    style={{ background: "linear-gradient(135deg, #c44a00, #ef7800)" }}>
+                    See plans →
+                  </Link>
                 </div>
               </div>
-            ))}
+            </div>
+
           </div>
         </div>
 
-        {/* FAQ */}
-        <div>
-          <h2 className="mb-6" style={{ fontFamily: "var(--font-montserrat)", fontWeight: 600, fontSize: "1rem", color: C.carbon, letterSpacing: "-0.01em" }}>
-            Frequently asked questions
-          </h2>
-          <div className="space-y-0">
-            {FAQ.map((item, i) => (
-              <div key={i} className="py-5" style={{ borderBottom: `1px solid ${C.alabaster}` }}>
-                <h3 className="font-semibold text-sm mb-2" style={{ color: C.carbon }}>{item.q}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: C.grey }}>{item.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </main>
+      </div>{/* end w-full body */}
 
-      {/* Footer */}
-      <footer className="mt-12" style={{ borderTop: `1px solid ${C.alabaster}` }}>
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between" style={{ fontSize: "0.68rem", color: "#bbb" }}>
+      <footer className="border-t border-border">
+        <div className="px-8 lg:px-16 py-4 flex items-center justify-between"
+          style={{ fontSize: "0.7rem", color: "#aaa" }}>
           <span>CONDOR Analytics © 2026 — All rights reserved</span>
           <div className="flex items-center gap-4">
-            <Link href="/terms" className="hover:text-neutral-600 transition-colors">Terms of Use</Link>
-            <span style={{ color: C.carbon, fontWeight: 600, fontSize: "0.68rem" }}>Support</span>
+            <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Use</Link>
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
           </div>
         </div>
       </footer>

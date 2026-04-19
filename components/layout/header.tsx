@@ -1,13 +1,15 @@
 /**
  * File: header.tsx
  * Path: /components/layout/header.tsx
- * Last Modified: 2026-04-17
- * Description: "Plans & Billing" → "Plans". Support → Link to /support (not mailto).
+ * Last Modified: 2026-04-18
+ * Description: Added centered project badge. Layout: search left | project center | controls right.
+ *   Badge shows current workspace name + ChevronDown (future: project switcher dropdown).
+ *   No accountName prop. No Supabase/GitHub mentions. No emojis.
  */
 
 "use client"
 
-import { Moon, Sun, Search, Bell, Settings, HelpCircle, LogOut, Crown, ExternalLink } from "lucide-react"
+import { Moon, Sun, Search, Bell, Settings, HelpCircle, LogOut, Crown, ExternalLink, ChevronDown, Layers } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
@@ -39,7 +41,7 @@ function HeaderPlanBadge({ planId, planName, role, isTrialing, trialDaysLeft }: 
     const expiring = trialDaysLeft !== null && trialDaysLeft <= 7
     return (
       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${expiring ? "bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400" : "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"}`}>
-        {trialDaysLeft !== null ? `Trial · ${trialDaysLeft} days left` : "Trial"}
+        {trialDaysLeft !== null ? `Trial · ${trialDaysLeft}d left` : "Trial"}
       </span>
     )
   }
@@ -61,12 +63,20 @@ function HeaderAvatar({ avatarUrl, initials }: { avatarUrl: string | null; initi
 export function Header() {
   const { theme, setTheme } = useTheme()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  // NOTE: projectMenuOpen is prepared for future multi-project switcher
+  const [, setProjectMenuOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
-  const { fullName, email, avatarUrl, initials, role, planId, planName, isTrialing, trialDaysLeft, isLoading } = useUserProfile()
+  const {
+    fullName, email, avatarUrl, initials, role,
+    planId, planName, isTrialing, trialDaysLeft,
+    workspaceName, isLoading
+  } = useUserProfile()
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) setIsProfileOpen(false)
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false)
+      }
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
@@ -77,22 +87,48 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 bg-background border-b border-border">
-      <div className="px-8 py-4">
-        <div className="flex items-center justify-between gap-8">
+      <div className="px-8 py-3">
+        {/* Three-column layout: search | project badge | controls */}
+        <div className="grid grid-cols-3 items-center gap-4">
 
-          <div className="flex-1 max-w-md">
-            <div className="relative flex items-center">
-              <Search className="absolute left-3 w-4 h-4 text-neutral-500" />
-              <input type="text" placeholder="Search or type command..."
-                className="w-full pl-10 pr-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-primary" />
-              <span className="absolute right-3 text-xs text-neutral-500 bg-card-hover px-2 py-1 rounded">⌘ K</span>
+          {/* ── LEFT: Search ── */}
+          <div className="flex items-center">
+            <div className="relative flex items-center w-full max-w-xs">
+              <Search className="absolute left-3 w-4 h-4 text-neutral-500 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search or type command..."
+                className="w-full pl-10 pr-14 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="absolute right-3 text-xs text-neutral-500">⌘K</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          {/* ── CENTER: Project badge ── */}
+          <div className="flex items-center justify-center">
+            {/* TODO: When multi-project is implemented, this button opens a dropdown
+                      to switch between workspaces. For now it's display-only. */}
+            <button
+              onClick={() => setProjectMenuOpen(prev => !prev)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-card-hover transition-colors group"
+              title="Current project (multi-project switcher coming soon)"
+            >
+              <Layers className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
+              <span className="text-sm font-semibold text-foreground max-w-[160px] truncate">
+                {isLoading ? "Loading..." : (workspaceName ?? "My Project")}
+              </span>
+              {/* ChevronDown: prepared for future dropdown switcher */}
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+            </button>
+          </div>
+
+          {/* ── RIGHT: Controls + user ── */}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="p-2 rounded-lg hover:bg-card-hover transition-colors text-neutral-400 hover:text-foreground"
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+            >
               {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
 
@@ -101,20 +137,27 @@ export function Header() {
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-orange-500 rounded-full" />
             </button>
 
+            {/* Profile dropdown */}
             <div className="relative" ref={profileRef}>
-              <button onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-xl hover:bg-card-hover transition-colors">
-                {isLoading ? <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 animate-pulse" /> : <HeaderAvatar avatarUrl={avatarUrl} initials={initials} />}
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-xl hover:bg-card-hover transition-colors"
+              >
+                {isLoading
+                  ? <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 animate-pulse" />
+                  : <HeaderAvatar avatarUrl={avatarUrl} initials={initials} />}
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-medium text-foreground leading-tight max-w-[120px] truncate">
-                    {isLoading ? "Loading..." : displayName}
+                  <p className="text-sm font-medium text-foreground leading-tight max-w-[100px] truncate">
+                    {isLoading ? "..." : displayName}
                   </p>
-                  {!isLoading && <HeaderPlanBadge planId={planId} planName={planName} role={role} isTrialing={isTrialing} trialDaysLeft={trialDaysLeft} />}
+                  {!isLoading && (
+                    <HeaderPlanBadge
+                      planId={planId} planName={planName} role={role}
+                      isTrialing={isTrialing} trialDaysLeft={trialDaysLeft}
+                    />
+                  )}
                 </div>
-                <svg className={`w-3.5 h-3.5 text-neutral-400 transition-transform hidden sm:block ${isProfileOpen ? "rotate-180" : ""}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <ChevronDown className={`w-3.5 h-3.5 text-neutral-400 transition-transform hidden sm:block ${isProfileOpen ? "rotate-180" : ""}`} />
               </button>
 
               {isProfileOpen && (
@@ -128,7 +171,10 @@ export function Header() {
                       </div>
                     </div>
                     <div className="mt-2">
-                      <HeaderPlanBadge planId={planId} planName={planName} role={role} isTrialing={isTrialing} trialDaysLeft={trialDaysLeft} />
+                      <HeaderPlanBadge
+                        planId={planId} planName={planName} role={role}
+                        isTrialing={isTrialing} trialDaysLeft={trialDaysLeft}
+                      />
                     </div>
                     {isTrialing && role === "user" && trialDaysLeft !== null && trialDaysLeft <= 7 && (
                       <Link href="/pricing" onClick={() => setIsProfileOpen(false)}
@@ -145,23 +191,17 @@ export function Header() {
                       <Settings className="w-4 h-4 text-neutral-400" />
                       Settings
                     </Link>
-
-                    {/* Plans — NOT "Plans & Billing" */}
                     <Link href="/pricing" onClick={() => setIsProfileOpen(false)}
                       className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-card-hover transition-colors flex items-center gap-2.5">
                       <Crown className="w-4 h-4 text-neutral-400" />
                       Plans
                     </Link>
-
-                    {/* Support → goes to /support PAGE, not mailto */}
                     <Link href="/support" onClick={() => setIsProfileOpen(false)}
                       className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-card-hover transition-colors flex items-center gap-2.5">
                       <HelpCircle className="w-4 h-4 text-neutral-400" />
                       Support
                     </Link>
-
                     <hr className="my-1 border-border" />
-
                     <button onClick={handleSignOut}
                       className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-500/5 transition-colors flex items-center gap-2.5">
                       <LogOut className="w-4 h-4" />

@@ -16,6 +16,7 @@ import { PlatformBreakdownPie } from "@/components/dashboard/platform-breakdown-
 import { TopContentTab } from "./top-content-tab"
 import { PostDrilldown } from "./post-drilldown"
 import { WeeklySummaryHeader } from "./weekly-summary-header"
+
 import { 
   BarChart3, Eye, MousePointerClick, TrendingUp, Users, UserPlus,
   Globe, Target, ArrowUpRight, ArrowDownRight, Minus
@@ -32,6 +33,7 @@ interface OverviewTabProps {
   platform: string
   dateRange: string
   webData?: ParsedDataset | null
+  userName?: string
 }
 
 function normalizePlatform(platform: string): string {
@@ -126,7 +128,7 @@ const MEDIUM_COLORS: Record<string, string> = {
   '(not set)': '#94a3b8',
 }
 
-export function OverviewTab({ data, platform, dateRange, webData }: OverviewTabProps) {
+export function OverviewTab({ data, platform, dateRange, webData, userName }: OverviewTabProps) {
   const [drilldownOpen, setDrilldownOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedPosts, setSelectedPosts] = useState<DataPoint[]>([])
@@ -243,12 +245,12 @@ export function OverviewTab({ data, platform, dateRange, webData }: OverviewTabP
       <WeeklySummaryHeader 
         data={data}
         webData={webData}
-        userName="Andy"
+        userName={userName ?? "there"}
         subtitle={
           data && webInsights
             ? "Here's your complete analytics overview"
             : data
-            ? "Here's your social media overview"
+            ? "Here's your analytics overview"
             : "Here's your web analytics overview"
         }
         variant={data ? 'overview' : 'web'}

@@ -23,6 +23,8 @@ import { useSidebarState } from "@/lib/hooks/useSidebarState"
 import type { ParsedDataset } from "@/lib/parsers/types"
 import { isMultiDataset, type MultiDataset } from "@/lib/parsers/types"
 import { WeeklySummaryHeader } from "@/components/dashboard/weekly-summary-header"
+import { useUserProfile } from "@/lib/hooks/useUserProfile"
+
 
 const PlatformContext = createContext<{
   platform: string
@@ -111,6 +113,8 @@ function DashboardContent() {
   const [dateRange, setDateRange] = useState("1 month")
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
   const [sidebarOpen, setSidebarOpen] = useSidebarState()
+  const { fullName } = useUserProfile()
+
 
   useEffect(() => {
     const stored = localStorage.getItem("condor_analytics_data")
@@ -275,11 +279,12 @@ function DashboardContent() {
               {activeTab === "overview" &&
                 (filteredSocialData || cleanWebData ? (
                   <OverviewTab
-                    data={filteredSocialData}
-                    platform={platform}
-                    dateRange={dateRange}
-                    webData={cleanWebData}
-                  />
+                  data={filteredSocialData}
+                  platform={platform}
+                  dateRange={dateRange}
+                  webData={cleanWebData}
+                  userName={fullName ?? "there"}
+                />
                 ) : (
                   <BlankState />
                 ))}
@@ -289,7 +294,7 @@ function DashboardContent() {
                   <div className="space-y-6">
                     <WeeklySummaryHeader
                       data={filteredSocialData}
-                      userName="Andy"
+                      userName={fullName ?? "there"}
                       subtitle="This is what's happening with your content"
                       variant="social"
                     />
@@ -309,7 +314,7 @@ function DashboardContent() {
                 (cleanWebData ? (
                   <div className="space-y-6">
                     <WeeklySummaryHeader
-                      userName="Andy"
+                      userName={fullName ?? "there"}
                       subtitle="Let's check how your website is performing"
                       variant="web"
                       webData={cleanWebData}

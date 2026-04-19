@@ -1,38 +1,21 @@
 /**
  * File: page.tsx
  * Path: /app/pricing/page.tsx
- * Last Modified: 2026-04-17
- * Description: CONDOR pricing — "Plans" page.
- *   - NO emojis anywhere
- *   - Nest + Flight: active plans
- *   - Altitude + Apex: "Coming Soon" — visible but muted/disabled
- *   - Toggle: fixed-width container for discount badge (no shift)
- *   - Dark mode toggle: explicit colors for visibility
- *   - Full width layout with max-w-7xl
- *   - Responsive flex, mobile collapses features
- *   - Comparison table: improved contrast for light mode
+ * Last Modified: 2026-04-18
+ * Description: Layout fix — centered via max-w-screen-2xl mx-auto.
+ *   Auth-aware header: back button if logged in, sign in if not.
+ *   Collapsible FAQ accordion. No emojis.
  */
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Check, Minus, Zap, ArrowUpRight, Clock } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Check, Minus, Zap, Clock, ChevronDown, ArrowLeft } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 type FeatureValue = string | boolean | "coming_soon"
-
-interface PlanFeature {
-  category: string
-  label: string
-  nest: FeatureValue
-  flight: FeatureValue
-  altitude: FeatureValue
-  apex: FeatureValue
-}
-
-// ================================================================
-// PLAN CONFIG — No emojis, Altitude/Apex disabled
-// ================================================================
 
 const PLANS = [
   {
@@ -44,10 +27,10 @@ const PLANS = [
     annualPrice: 15,
     comingSoon: false,
     highlighted: false,
-    accentColor: "#212121",
-    borderStyle: "border-neutral-200 dark:border-neutral-700",
-    bgStyle: "bg-white dark:bg-neutral-900",
-    ctaStyle: { background: "#212121", color: "#fff" },
+    borderClass: "border-neutral-200 dark:border-neutral-700",
+    bgClass: "bg-white dark:bg-neutral-900",
+    ctaStyle: { background: "#212121", color: "#fff" } as React.CSSProperties,
+    checkColor: "#212121",
     highlights: [
       "1 project (workspace)",
       "LinkedIn + X analytics",
@@ -67,10 +50,10 @@ const PLANS = [
     comingSoon: false,
     highlighted: true,
     badge: "Most Popular",
-    accentColor: "#004898",
-    borderStyle: "border-[#004898]",
-    bgStyle: "bg-blue-50/60 dark:bg-blue-950/20",
-    ctaStyle: { background: "#004898", color: "#fff" },
+    borderClass: "border-[#004898]",
+    bgClass: "bg-blue-50/60 dark:bg-blue-950/20",
+    ctaStyle: { background: "#004898", color: "#fff" } as React.CSSProperties,
+    checkColor: "#004898",
     highlights: [
       "3 projects + up to 5 platforms",
       "Instagram, TikTok + GA4",
@@ -89,10 +72,10 @@ const PLANS = [
     annualPrice: 99,
     comingSoon: true,
     highlighted: false,
-    accentColor: "#818181",
-    borderStyle: "border-neutral-200 dark:border-neutral-700",
-    bgStyle: "bg-white dark:bg-neutral-900",
-    ctaStyle: { background: "#e0e0e0", color: "#818181" },
+    borderClass: "border-neutral-200 dark:border-neutral-700",
+    bgClass: "bg-white dark:bg-neutral-900",
+    ctaStyle: { background: "#e0e0e0", color: "#818181" } as React.CSSProperties,
+    checkColor: "#818181",
     highlights: [
       "Unlimited projects",
       "Full AI — unlimited queries",
@@ -103,6 +86,15 @@ const PLANS = [
     ],
   },
 ]
+
+interface PlanFeature {
+  category: string
+  label: string
+  nest: FeatureValue
+  flight: FeatureValue
+  altitude: FeatureValue
+  apex: FeatureValue
+}
 
 const COMPARISON_FEATURES: PlanFeature[] = [
   { category: "Projects & Data", label: "Projects (workspaces)", nest: "1", flight: "3", altitude: "Unlimited", apex: "Unlimited" },
@@ -119,95 +111,117 @@ const COMPARISON_FEATURES: PlanFeature[] = [
   { category: "Dashboard & Reports", label: "PDF export", nest: false, flight: true, altitude: true, apex: true },
   { category: "Dashboard & Reports", label: "Advanced PDF reports", nest: false, flight: false, altitude: "coming_soon", apex: "coming_soon" },
   { category: "Dashboard & Reports", label: "Comparison dashboards", nest: false, flight: false, altitude: "coming_soon", apex: "coming_soon" },
-  { category: "Dashboard & Reports", label: "Scheduled email reports", nest: false, flight: false, altitude: "coming_soon", apex: "coming_soon" },
   { category: "AI & Intelligence", label: "Rule-based Recommendations", nest: true, flight: true, altitude: true, apex: true },
   { category: "AI & Intelligence", label: "AI Insights", nest: false, flight: "5 / month", altitude: "coming_soon", apex: "coming_soon" },
-  { category: "AI & Intelligence", label: "Top vs. Worst post analysis", nest: false, flight: "coming_soon", altitude: "coming_soon", apex: "coming_soon" },
   { category: "AI & Intelligence", label: "Industry benchmarks", nest: true, flight: true, altitude: "coming_soon", apex: "coming_soon" },
   { category: "Team & Collaboration", label: "Team members", nest: "1", flight: "1", altitude: "coming_soon", apex: "coming_soon" },
   { category: "Team & Collaboration", label: "Roles + permissions", nest: false, flight: false, altitude: "coming_soon", apex: "coming_soon" },
   { category: "Team & Collaboration", label: "White-label reports", nest: false, flight: false, altitude: false, apex: "coming_soon" },
 ]
 
-// ================================================================
-// FEATURE CELL
-// ================================================================
-
 function FeatureCell({ value, muted }: { value: FeatureValue; muted?: boolean }) {
-  if (value === true) return <div className="flex justify-center"><Check className={`w-4 h-4 ${muted ? "text-neutral-300 dark:text-neutral-600" : "text-foreground"}`} /></div>
-  if (value === false) return <div className="flex justify-center"><Minus className="w-4 h-4 text-neutral-300 dark:text-neutral-600" /></div>
-  if (value === "coming_soon") return (
-    <div className="flex justify-center">
-      <span className="text-[10px] font-medium text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-full">Soon</span>
-    </div>
-  )
-  return (
-    <div className="flex justify-center">
-      <span className={`text-xs font-medium text-center ${muted ? "text-neutral-400 dark:text-neutral-600" : "text-foreground"}`}>{value}</span>
-    </div>
-  )
+  if (value === true) return <div className="flex justify-center"><Check className={`w-4 h-4 ${muted ? "text-neutral-300 dark:text-neutral-700" : "text-foreground"}`} /></div>
+  if (value === false) return <div className="flex justify-center"><Minus className="w-4 h-4 text-neutral-300 dark:text-neutral-700" /></div>
+  if (value === "coming_soon") return <div className="flex justify-center"><span className="text-[10px] font-medium text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-full">Soon</span></div>
+  return <div className="flex justify-center"><span className={`text-xs font-medium text-center ${muted ? "text-neutral-400 dark:text-neutral-600" : "text-foreground"}`}>{value}</span></div>
 }
 
-// ================================================================
-// MAIN
-// ================================================================
+const FAQ_ITEMS = [
+  { q: "Do I need a credit card for the trial?", a: "No. Sign up with your email or Google account and start immediately. No card required, no automatic charges at the end." },
+  { q: "How does CONDOR work right now?", a: "Currently, CONDOR works by importing CSV and XLS files you export from LinkedIn, X/Twitter, and Google Analytics. Upload your export and CONDOR interprets, visualises, and benchmarks everything automatically. No API keys required. We are actively building direct API integrations — in future versions you will be able to connect your accounts and sync data automatically. Trial users will be notified when this launches." },
+  { q: "Which platforms are supported today?", a: "LinkedIn (XLS export: Content, Followers, Visitors), X/Twitter (CSV from analytics.twitter.com), and Google Analytics 4 (CSV export). Instagram and TikTok are on the roadmap for the Flight plan." },
+  { q: "What is the difference between Nest and Flight?", a: "Nest: 1 project, LinkedIn + X, 90-day history. Flight: 3 projects, adds Instagram, TikTok and GA4, unlimited history, AI Insights (5/month), and PDF export." },
+  { q: "When will Altitude and Apex be available?", a: "We are building them now. Join the Flight trial and you will be notified by email when they launch. Your data and settings carry over." },
+  { q: "Can I cancel anytime?", a: "Yes. Upgrade, downgrade, or cancel at any time from Settings. Cancellations take effect at the end of the current billing period." },
+  { q: "What happens when my trial ends?", a: "Your account moves to read-only. Your data is preserved for 30 days before deletion. You will receive email reminders before this happens." },
+  { q: "Is my data secure?", a: "Yes. Data is isolated per user with row-level security. All communication is HTTPS. We do not sell or share your analytics data with third parties. You retain ownership of everything you upload." },
+  { q: "Can I switch between monthly and annual billing?", a: "Yes. Switch from monthly to annual at any time to save ~20%. Annual-to-monthly switches take effect at the end of your current annual period." },
+  { q: "Do you offer refunds?", a: "We offer a full refund within 7 days of your first paid charge. Contact support@condoranalytics.app and we will process it within 2 business days." },
+]
 
 export default function PricingPage() {
+  const router = useRouter()
   const [isAnnual, setIsAnnual] = useState(true)
-  const [expandedMobile, setExpandedMobile] = useState<string | null>(null)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const check = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      setIsLoggedIn(!!user)
+    }
+    check()
+  }, [])
 
   const categories = Array.from(new Set(COMPARISON_FEATURES.map(f => f.category)))
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border px-8 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg overflow-hidden flex items-center justify-center" style={{ background: "#f3f3f3" }}>
-            <img src="/condor-logo-v1.png" alt="" width={20} height={20} style={{ objectFit: "contain", mixBlendMode: "multiply" }} />
+
+      {/* ── HEADER ── */}
+      <header className="sticky top-0 z-40 bg-background border-b border-border">
+        {/* Full-width inner: max-w-screen-2xl centers on very large monitors */}
+        <div className="max-w-screen-2xl mx-auto px-8 lg:px-12 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg overflow-hidden flex items-center justify-center bg-neutral-100 dark:bg-neutral-800">
+              <img src="/condor-logo-v1.png" alt="" width={20} height={20}
+                style={{ objectFit: "contain", mixBlendMode: "multiply" }} />
+            </div>
+            <span className="font-bold text-sm tracking-widest uppercase text-foreground"
+              style={{ fontFamily: "var(--font-montserrat)" }}>CONDOR</span>
+            <span className="text-xs text-neutral-500">Analytics</span>
+          </Link>
+
+          <div className="flex items-center gap-4">
+            {isLoggedIn === null ? null : isLoggedIn ? (
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-1.5 text-sm font-medium text-neutral-500 hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </button>
+            ) : (
+              <Link href="/auth/login" className="text-sm text-neutral-500 hover:text-foreground transition-colors">
+                Sign in
+              </Link>
+            )}
           </div>
-          <span className="font-bold text-sm tracking-widest uppercase text-foreground">CONDOR</span>
-          <span className="text-xs text-neutral-500">Analytics</span>
-        </Link>
-        <Link href="/auth/login" className="text-sm text-neutral-500 hover:text-foreground transition-colors">Sign in</Link>
+        </div>
       </header>
 
-      <div className="w-full max-w-7xl mx-auto px-6 lg:px-8 py-16">
+      {/* ── PAGE BODY — centered, generous max-width ── */}
+      <div className="max-w-screen-2xl mx-auto px-8 lg:px-12 py-12">
 
-        {/* Hero */}
-        <div className="text-center mb-12">
+        {/* Hero — centered */}
+        <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium mb-4">
             <Zap className="w-3 h-3" />
             30-day free trial · No credit card required
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 tracking-tight" style={{ fontFamily: "var(--font-montserrat)" }}>
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 tracking-tight"
+            style={{ fontFamily: "var(--font-montserrat)" }}>
             Choose your altitude
           </h1>
-          <p className="text-lg text-neutral-500 max-w-xl mx-auto">
+          <p className="text-lg text-neutral-500 max-w-xl mx-auto leading-relaxed">
             From your first insight to a full agency stack — CONDOR scales with you.
           </p>
         </div>
 
-        {/* Toggle — fixed width container prevents shift */}
-        <div className="flex items-center justify-center mb-12">
+        {/* Billing toggle — centered */}
+        <div className="flex items-center justify-center mb-10">
           <div className="flex items-center gap-4">
-            <span className={`text-sm font-medium transition-colors ${!isAnnual ? "text-foreground" : "text-neutral-400"}`}>Monthly</span>
+            <span className={`text-sm font-medium ${!isAnnual ? "text-foreground" : "text-neutral-400"}`}>Monthly</span>
             <button
               onClick={() => setIsAnnual(!isAnnual)}
               className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
               style={{ background: isAnnual ? "#212121" : "#d1d5db" }}
             >
-              <span
-                className="inline-block h-4 w-4 transform rounded-full transition-transform"
-                style={{
-                  transform: isAnnual ? "translateX(1.5rem)" : "translateX(0.25rem)",
-                  /* Thumb always contrasts with track */
-                  background: isAnnual ? "#ffffff" : "#ffffff",
-                }}
-              />
+              <span className="inline-block h-4 w-4 rounded-full bg-white transition-transform"
+                style={{ transform: isAnnual ? "translateX(1.5rem)" : "translateX(0.25rem)" }} />
             </button>
-            <span className={`text-sm font-medium transition-colors ${isAnnual ? "text-foreground" : "text-neutral-400"}`}>Annually</span>
-            {/* Fixed width — prevents layout shift when badge appears/disappears */}
+            <span className={`text-sm font-medium ${isAnnual ? "text-foreground" : "text-neutral-400"}`}>Annually</span>
             <div style={{ minWidth: "90px" }}>
               {isAnnual && (
                 <span className="text-xs font-semibold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded-full whitespace-nowrap">
@@ -218,71 +232,60 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* === 3 PLAN CARDS === */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        {/* ── PLAN CARDS — 3 equal columns across full width ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {PLANS.map(plan => {
             const price = isAnnual ? plan.annualPrice : plan.monthlyPrice
             return (
               <div key={plan.id}
-                className={`relative rounded-2xl border-2 p-7 flex flex-col transition-all ${plan.borderStyle} ${plan.bgStyle} ${plan.comingSoon ? "opacity-60" : ""} ${plan.highlighted && !plan.comingSoon ? "shadow-lg" : ""}`}>
+                className={`relative rounded-2xl border-2 p-7 flex flex-col ${plan.borderClass} ${plan.bgClass} ${plan.comingSoon ? "opacity-60" : ""} ${plan.highlighted && !plan.comingSoon ? "shadow-lg" : ""}`}>
 
                 {plan.badge && !plan.comingSoon && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="text-white text-xs font-semibold px-3 py-1 rounded-full" style={{ background: "#004898" }}>
-                      {plan.badge}
-                    </span>
+                    <span className="text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap"
+                      style={{ background: "#004898" }}>{plan.badge}</span>
                   </div>
                 )}
-
                 {plan.comingSoon && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400">
-                      <Clock className="w-3 h-3" />
-                      Coming Soon
+                    <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-500 whitespace-nowrap">
+                      <Clock className="w-3 h-3" />Coming Soon
                     </span>
                   </div>
                 )}
 
-                {/* Plan name — NO emoji */}
                 <div className="mb-4">
-                  <span className="font-bold text-xl" style={{ color: plan.comingSoon ? "#818181" : plan.accentColor }}>
-                    {plan.name}
-                  </span>
+                  <span className={`font-bold text-xl ${plan.comingSoon ? "text-neutral-400" : "text-foreground"}`}>{plan.name}</span>
                   <p className="text-xs mt-0.5 text-neutral-500">{plan.tagline}</p>
                 </div>
 
-                {/* Price */}
                 <div className="mb-3">
                   <div className="flex items-baseline gap-1">
                     <span className={`text-4xl font-bold ${plan.comingSoon ? "text-neutral-400" : "text-foreground"}`}>${price}</span>
                     <span className="text-sm text-neutral-500">/month</span>
                   </div>
-                  {isAnnual && (
-                    <p className="text-xs text-neutral-400 mt-0.5">Billed annually — ${plan.annualPrice * 12}/year</p>
-                  )}
+                  {isAnnual && <p className="text-xs text-neutral-400 mt-0.5">Billed annually — ${plan.annualPrice * 12}/year</p>}
                 </div>
 
                 <p className="text-sm text-neutral-500 leading-relaxed mb-5">{plan.description}</p>
 
-                {/* CTA */}
                 {plan.comingSoon ? (
-                  <div className="w-full py-3 px-4 rounded-xl font-semibold text-sm text-center mb-6 bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed select-none">
+                  <div className="w-full py-3 px-4 rounded-xl font-semibold text-sm text-center mb-6 bg-neutral-100 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed">
                     Coming Soon
                   </div>
                 ) : (
                   <Link href={`/auth/sign-up?plan=${plan.id}&billing=${isAnnual ? "annual" : "monthly"}`}
-                    className="w-full py-3 px-4 rounded-xl font-semibold text-sm text-center transition-all mb-6 block hover:opacity-90"
+                    className="w-full py-3 px-4 rounded-xl font-semibold text-sm text-center block hover:opacity-90 transition-opacity mb-6"
                     style={plan.ctaStyle}>
                     Start free trial →
                   </Link>
                 )}
 
-                {/* Highlights */}
                 <div className="space-y-2.5 flex-1">
                   {plan.highlights.map(h => (
                     <div key={h} className="flex items-start gap-2.5">
-                      <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: plan.comingSoon ? "#818181" : plan.accentColor }} />
-                      <span className="text-sm" style={{ color: plan.comingSoon ? "#818181" : undefined }}>{h}</span>
+                      <Check className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: plan.checkColor }} />
+                      <span className={`text-sm ${plan.comingSoon ? "text-neutral-400" : ""}`}>{h}</span>
                     </div>
                   ))}
                 </div>
@@ -291,21 +294,18 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* === APEX — Coming Soon (full width) === */}
-        <div className="rounded-2xl border-2 border-neutral-200 dark:border-neutral-700 p-7 mb-16 opacity-60">
+        {/* Apex */}
+        <div className="rounded-2xl border-2 border-neutral-200 dark:border-neutral-700 p-7 mb-14 opacity-60">
           <div className="flex flex-col lg:flex-row lg:items-center gap-8">
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3 mb-3 flex-wrap">
                 <span className="font-bold text-xl text-neutral-500">Apex</span>
                 <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-500">
-                  <Clock className="w-3 h-3" />
-                  Coming Soon
+                  <Clock className="w-3 h-3" />Coming Soon
                 </span>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-400">Enterprise</span>
               </div>
-              <p className="text-sm text-neutral-400 max-w-xl leading-relaxed mb-4">
-                Multi-user teams, white-label reports, advanced AI, and custom integrations. From $199/month.
-              </p>
+              <p className="text-sm text-neutral-400 max-w-xl leading-relaxed mb-4">Multi-user teams, white-label reports, advanced AI, and custom integrations. From $199/month.</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {["Multi-user + roles", "White-label reports", "Full AI (advanced)", "Custom integrations", "Shared dashboards", "Performance prediction", "API access", "Priority SLA support"].map(f => (
                   <div key={f} className="flex items-center gap-1.5">
@@ -318,61 +318,32 @@ export default function PricingPage() {
             <div className="flex flex-col gap-3 lg:items-end">
               <p className="text-2xl font-bold text-neutral-400">From $199</p>
               <p className="text-sm text-neutral-400">/ month · custom plans</p>
-              <div className="px-6 py-3 rounded-xl font-semibold text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed select-none">
-                Coming Soon
-              </div>
+              <div className="px-6 py-3 rounded-xl font-semibold text-sm bg-neutral-100 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed">Coming Soon</div>
             </div>
           </div>
         </div>
 
-        {/* === COMPARISON TABLE === */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-bold text-foreground text-center mb-2">Full comparison</h2>
+        {/* Comparison table */}
+        <div className="mb-14">
+          <h2 className="text-2xl font-bold text-foreground text-center mb-2" style={{ fontFamily: "var(--font-montserrat)" }}>Full comparison</h2>
           <p className="text-neutral-500 text-sm text-center mb-8">Everything included in each plan</p>
-
           <div className="border border-border rounded-2xl overflow-hidden">
-            {/* Table header */}
             <div className="grid grid-cols-5 border-b border-border bg-neutral-50 dark:bg-neutral-900">
               <div className="p-4 text-sm font-semibold text-neutral-500">Feature</div>
-              {/* Nest */}
-              <div className="p-4 text-center">
-                <span className="text-sm font-bold text-foreground">Nest</span>
-                <div className="text-xs font-bold text-neutral-500 mt-0.5">${isAnnual ? 15 : 19}/mo</div>
-              </div>
-              {/* Flight */}
-              <div className="p-4 text-center" style={{ background: "rgba(0,72,152,0.04)" }}>
-                <span className="text-sm font-bold" style={{ color: "#004898" }}>Flight</span>
-                <div className="text-xs font-bold mt-0.5" style={{ color: "#004898" }}>${isAnnual ? 39 : 49}/mo</div>
-              </div>
-              {/* Altitude — muted */}
-              <div className="p-4 text-center">
-                <span className="text-sm font-bold text-neutral-400">Altitude</span>
-                <div className="text-xs font-bold text-neutral-400 mt-0.5 flex items-center justify-center gap-1">
-                  <Clock className="w-3 h-3" /> Soon
-                </div>
-              </div>
-              {/* Apex — muted */}
-              <div className="p-4 text-center">
-                <span className="text-sm font-bold text-neutral-400">Apex</span>
-                <div className="text-xs font-bold text-neutral-400 mt-0.5 flex items-center justify-center gap-1">
-                  <Clock className="w-3 h-3" /> Soon
-                </div>
-              </div>
+              <div className="p-4 text-center"><span className="text-sm font-bold text-foreground">Nest</span><div className="text-xs font-bold text-neutral-500 mt-0.5">${isAnnual ? 15 : 19}/mo</div></div>
+              <div className="p-4 text-center" style={{ background: "rgba(0,72,152,0.04)" }}><span className="text-sm font-bold" style={{ color: "#004898" }}>Flight</span><div className="text-xs font-bold mt-0.5" style={{ color: "#004898" }}>${isAnnual ? 39 : 49}/mo</div></div>
+              <div className="p-4 text-center"><span className="text-sm font-bold text-neutral-400">Altitude</span><div className="text-xs text-neutral-400 mt-0.5 flex items-center justify-center gap-1"><Clock className="w-3 h-3" />Soon</div></div>
+              <div className="p-4 text-center"><span className="text-sm font-bold text-neutral-400">Apex</span><div className="text-xs text-neutral-400 mt-0.5 flex items-center justify-center gap-1"><Clock className="w-3 h-3" />Soon</div></div>
             </div>
-
             {categories.map(category => {
               const catFeatures = COMPARISON_FEATURES.filter(f => f.category === category)
               return (
                 <div key={category}>
-                  {/* Category row */}
                   <div className="grid grid-cols-5 border-b border-border bg-neutral-100/60 dark:bg-neutral-800/40">
-                    <div className="col-span-5 px-4 py-2.5">
-                      <span className="text-xs font-bold uppercase tracking-wider text-neutral-500">{category}</span>
-                    </div>
+                    <div className="col-span-5 px-4 py-2.5"><span className="text-xs font-bold uppercase tracking-wider text-neutral-500">{category}</span></div>
                   </div>
                   {catFeatures.map((feature, idx) => (
-                    <div key={feature.label}
-                      className={`grid grid-cols-5 border-b border-border last:border-0 ${idx % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/20"}`}>
+                    <div key={feature.label} className={`grid grid-cols-5 border-b border-border last:border-0 ${idx % 2 === 0 ? "bg-white dark:bg-neutral-900" : "bg-neutral-50/50 dark:bg-neutral-800/20"}`}>
                       <div className="p-3 px-4 text-sm text-neutral-700 dark:text-neutral-300 flex items-center">{feature.label}</div>
                       <div className="p-3 flex items-center justify-center"><FeatureCell value={feature.nest} /></div>
                       <div className="p-3 flex items-center justify-center" style={{ background: "rgba(0,72,152,0.03)" }}><FeatureCell value={feature.flight} /></div>
@@ -387,11 +358,11 @@ export default function PricingPage() {
         </div>
 
         {/* Trial callout */}
-        <div className="text-center bg-card border border-border rounded-2xl p-10 mb-12">
+        <div className="text-center border border-border rounded-2xl p-10 mb-12 max-w-2xl mx-auto">
           <h3 className="text-2xl font-bold text-foreground mb-2" style={{ fontFamily: "var(--font-montserrat)" }}>
             30 days free. No credit card. No risk.
           </h3>
-          <p className="text-neutral-500 mb-6 max-w-md mx-auto text-sm">
+          <p className="text-neutral-500 mb-6 text-sm leading-relaxed">
             Start with full Flight access and see what CONDOR can do before paying anything.
           </p>
           <Link href="/auth/sign-up"
@@ -405,29 +376,38 @@ export default function PricingPage() {
           </p>
         </div>
 
-        {/* FAQ */}
-        <div className="max-w-2xl mx-auto">
-          <h3 className="text-2xl font-bold text-foreground text-center mb-8" style={{ fontFamily: "var(--font-montserrat)" }}>FAQ</h3>
-          <div className="space-y-6">
-            {[
-              { q: "Do I need a credit card for the trial?", a: "No. Sign up with your email or Google account and start immediately. No card required." },
-              { q: "How does CONDOR work?", a: "CONDOR works with CSV/XLS files from LinkedIn, X, and Google Analytics. Download your export, upload it to CONDOR, and it interprets everything automatically. No API connections needed." },
-              { q: "What's the difference between Nest and Flight?", a: "Nest covers one project with LinkedIn + X. Flight adds up to 3 projects, Instagram, TikTok, GA4, unlimited data history, and AI insights." },
-              { q: "When will Altitude and Apex be available?", a: "We're building these plans now. Join the Flight plan trial and you'll be notified when Altitude and Apex launch." },
-              { q: "Can I cancel anytime?", a: "Yes. Upgrade, downgrade, or cancel at any time. Cancellations take effect at the end of your billing period." },
-            ].map((faq, idx) => (
-              <div key={idx} className="border-b border-border pb-6">
-                <h4 className="font-semibold text-foreground mb-2">{faq.q}</h4>
-                <p className="text-sm text-neutral-500 leading-relaxed">{faq.a}</p>
-              </div>
-            ))}
+        {/* FAQ — collapsible */}
+        <div className="max-w-3xl mx-auto mb-16">
+          <h3 className="text-2xl font-bold text-foreground text-center mb-8" style={{ fontFamily: "var(--font-montserrat)" }}>
+            Frequently asked questions
+          </h3>
+          <div className="border border-border rounded-2xl overflow-hidden divide-y divide-border">
+            {FAQ_ITEMS.map((faq, idx) => {
+              const isOpen = openFaq === idx
+              return (
+                <div key={idx} className={isOpen ? "bg-neutral-50 dark:bg-neutral-800/40" : "bg-background"}>
+                  <button
+                    onClick={() => setOpenFaq(isOpen ? null : idx)}
+                    className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800/30 transition-colors"
+                  >
+                    <span className="font-semibold text-sm text-foreground pr-4">{faq.q}</span>
+                    <ChevronDown className={`w-4 h-4 flex-shrink-0 text-neutral-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isOpen && (
+                    <div className="px-6 pb-5">
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">{faq.a}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 
-        <div className="text-center mt-16 pt-8 border-t border-border">
+        <div className="text-center pt-6 border-t border-border">
           <p className="text-xs text-neutral-400">
             © 2026 CONDOR Analytics · v2.0 ·{" "}
-            <a href="mailto:hello@condoranalytics.app" className="hover:text-foreground">Contact</a>
+            <a href="mailto:support@condoranalytics.app" className="hover:text-foreground transition-colors">Contact</a>
           </p>
         </div>
       </div>
