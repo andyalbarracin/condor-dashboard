@@ -235,7 +235,7 @@ export default function UploadPage() {
           width: sidebarOpen ? "calc(100vw - 16rem)" : "calc(100vw - 5rem)",
         }}
       >
-        <Header accountName="Asentria" />
+        <Header />
         <div className="flex-1 overflow-auto">
           <div className="px-8 py-8 max-w-4xl">
             <div className="mb-8">
