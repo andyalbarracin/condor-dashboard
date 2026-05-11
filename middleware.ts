@@ -15,7 +15,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
 
 // Routes that require authentication
-const PROTECTED_PATHS = ["/", "/reports", "/upload", "/settings", "/onboarding", "/admin"]
+const PROTECTED_PATHS = ["/", "/reports", "/upload", "/settings", "/onboarding", "/admin", "/content", "/content-deck"]
 
 // Routes that are only for unauthenticated users (redirect to / if logged in)
 const AUTH_ONLY_PATHS = ["/auth/login", "/auth/sign-up"]

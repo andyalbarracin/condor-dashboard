@@ -13,7 +13,7 @@ import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import {
   Home, BarChart3, Settings, FileUp, Zap, Menu, X, FileText,
-  LogOut, Crown, ChevronRight,
+  LogOut, Crown, ChevronRight, Layers,
 } from "lucide-react"
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
@@ -90,6 +90,7 @@ function SidebarNav({ pathname, isOpen, isSuperAdmin }: { pathname: string; isOp
     { icon: Zap, label: "Web", href: "/?tab=web" },
     { icon: FileUp, label: "Uploads", href: "/upload" },
     { icon: FileText, label: "Reports", href: "/reports" },
+    { icon: Layers, label: "Content Deck", href: "/content-deck" },
     { icon: Settings, label: "Settings", href: "/settings" },
     ...(isSuperAdmin ? [{ icon: Crown, label: "Admin", href: "/admin" }] : []),
   ]
@@ -100,6 +101,8 @@ function SidebarNav({ pathname, isOpen, isSuperAdmin }: { pathname: string; isOp
     if (href === "/") return pathname === "/" && (!tab || tab === "overview")
     if (href === "/?tab=social") return pathname === "/" && tab === "social"
     if (href === "/?tab=web") return pathname === "/" && tab === "web"
+    if (href === "/content-deck") return pathname.startsWith("/content-deck")
+    if (href === "/content") return pathname.startsWith("/content")
     return pathname === href
   }
 

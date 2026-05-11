@@ -1,9 +1,9 @@
 # 🦅 CONDOR Analytics
 
-## Current Version: 1.4.0
+## Current Version: 1.5.0
 
-**Release Name:** Connected Foundation  
-**Release Date:** April 16, 2026  
+**Release Name:** Content Deck  
+**Release Date:** May 5, 2026  
 **Status:** Stable — Production (Asentria Internal) + SaaS Transformation In Progress
 
 ---
@@ -78,33 +78,69 @@ Telecom / Network Infrastructure, SaaS, E-commerce, B2B Tech, Fintech, Healthcar
 | Persistent sidebar with tooltips (Radix UI) | ✅ Production |
 | Pricing page (3 plans + trial) | ✅ Production |
 
-### 🔄 In Progress (v2.0.0)
+### ✅ Auth & Platform (Implemented — not previously documented)
 | Feature | Status |
 |---------|--------|
-| Supabase Auth (Google OAuth + email) | 🔄 Building |
-| Onboarding flow (multi-step) | 🔄 Designing |
-| User roles (user / admin / super_admin) | 🔄 Schema ready |
+| Supabase Auth (Google OAuth + email/password) | ✅ Production |
+| Onboarding flow (multi-step) | ✅ Production |
+| User roles (user / admin / super_admin) | ✅ Production |
+| Workspaces (create, update, RLS) | ✅ Production |
+| Persistent sidebar with profile + plan badge | ✅ Production |
+| Settings page (profile + workspace) | ✅ Production |
+| Pricing page (Nest/Flight/Altitude/Apex plans) | ✅ Production |
+| Supabase schema v2.1 (10 tables, full RLS) | ✅ Production |
+
+### ✅ Content Deck (v1.5.0)
+| Feature | Status |
+|---------|--------|
+| Content Deck module — Pipeline (Kanban) | ✅ Production |
+| Content Deck module — Table view | ✅ Production |
+| Content Deck module — Calendar view | ✅ Production |
+| Content Deck module — Ideas board | ✅ Production |
+| Content Deck module — Templates placeholder | ✅ Production |
+| Content item detail page | ✅ Production |
+| Platform versions per content item | ✅ Production |
+| Comments (internal) | ✅ Production |
+| Activity log | ✅ Production |
+| Attachments (external links) | ✅ Production |
+| Performance link placeholder | ✅ Production |
+| AI suggestions placeholder | ✅ Production |
+| DB: 8 new tables with RLS | ✅ Production |
+
+### 🔄 Planned
+| Feature | Status |
+|---------|--------|
 | Platform connections (GA4 OAuth, LinkedIn, X) | 🔄 Schema ready |
 | localStorage → Supabase migration | 🔄 Planned |
+| Content Deck AI generation | 🔄 Planned |
+| Content ↔ Analytics performance linking | 🔄 Planned |
 
 ---
 
-## Database Schema (v2.1 — Current)
+## Database Schema (v2.2 — Current)
 
-7 tables with Row Level Security:
+18 tables with Row Level Security:
 
 | Table | Purpose |
 |-------|---------|
 | `profiles` | User profiles (extends auth.users) |
 | `subscriptions` | User plan + trial status |
-| `subscription_plans` | Plan definitions (Starter, Professional, Agency, Enterprise) |
+| `subscription_plans` | Plan definitions (Nest, Flight, Altitude, Apex) |
 | `workspaces` | Companies/projects per user |
 | `analytics_datasets` | Uploaded CSV/XLS data |
 | `analytics_metrics` | Aggregated metrics for fast queries |
-| `workspace_members` | Team collaboration (future) |
+| `workspace_members` | Team collaboration |
 | `onboarding_responses` | Onboarding answers for product analytics |
 | `platform_connections` | OAuth tokens for direct API connections |
 | `audit_logs` | Immutable security audit trail |
+| `content_statuses` | Editable content workflow statuses per workspace |
+| `content_items` | Content pieces (posts, articles, ideas) |
+| `content_versions` | Per-platform versions of each content item |
+| `content_comments` | Internal team comments on content items |
+| `content_attachments` | Links and files attached to content items |
+| `content_activity` | Activity log for content item changes |
+| `content_ai_generations` | AI-generated content (future) |
+| `content_performance_links` | Links content items to analytics data (future) |
 
 ---
 
@@ -122,6 +158,25 @@ Telecom / Network Infrastructure, SaaS, E-commerce, B2B Tech, Fintech, Healthcar
 ---
 
 ## Version History
+
+### v1.5.0 — May 5, 2026 — "Content Deck"
+**Content Deck Module MVP**
+- Added Content Deck sidebar item (`/content` routes)
+- Added Kanban pipeline view (`/content/pipeline`) with per-status columns
+- Added Table view (`/content/table`) with sort and filters
+- Added Calendar view (`/content/calendar`) grouped by scheduled/due/published date
+- Added Ideas board (`/content/ideas`) filtered to status=idea
+- Added Templates placeholder (`/content/templates`) with AI coming-soon banner
+- Added content item detail page (`/content/[id]`) with full metadata editing
+- Added platform version editor (headline, body, CTA, hashtags per platform)
+- Added internal comments with activity logging
+- Added attachment links
+- Added performance link + AI suggestion placeholders
+- Created SQL migration for 8 new Supabase tables with full RLS
+- Added TypeScript types (ContentItem, ContentVersion, ContentComment, etc.)
+- Added Supabase query/mutation helpers and hooks
+- Added UI components: Badge, Select, Dialog, Textarea, Separator, Tabs, DropdownMenu
+- Supabase MCP configured in `.claude/settings.json`
 
 ### v1.4.0 — April 16, 2026 — "Connected Foundation"
 **SaaS Transformation Begins**
