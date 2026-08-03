@@ -29,7 +29,7 @@ import { Footer } from "@/components/layout/footer"
 import { useSidebarState } from "@/lib/hooks/useSidebarState"
 import { clearUserProfileCache } from "@/lib/hooks/useUserProfile"
 import { Input } from "@/components/ui/input"
-import { Check, Save, User, Building2, Shield, ArrowUpRight, Camera } from "lucide-react"
+import { Check, Save, User, Building2, Shield, Camera } from "lucide-react"
 import Link from "next/link"
 
 const C = { orange: "#ef7800" }
@@ -127,8 +127,6 @@ export default function SettingsPage() {
   const [workspaceName, setWorkspaceName] = useState("")
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [wsLoaded, setWsLoaded] = useState(false)
-  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null)
-  const [planName, setPlanName] = useState("Flight")
 
   useEffect(() => {
     const load = async () => {
@@ -157,28 +155,6 @@ export default function SettingsPage() {
         setWorkspaceName(wsRows[0].name ?? "")
       }
       setWsLoaded(true)
-
-      // Subscription
-      const { data: sub } = await supabase.from("subscriptions")
-        .select("status, trial_end, subscription_plans(name)")
-        .eq("user_id", user.id).maybeSingle()
-      if (sub) {
-        type S = {
-          status: string; trial_end: string | null
-          subscription_plans: { name: string } | { name: string }[] | null
-        }
-        const s = sub as S
-        const plans = s.subscription_plans
-        const name = Array.isArray(plans)
-          ? plans[0]?.name
-          : (plans as { name?: string } | null)?.name
-        if (name) setPlanName(name)
-        if (s.status === "trialing" && s.trial_end) {
-          setTrialDaysLeft(Math.max(0, Math.ceil(
-            (new Date(s.trial_end).getTime() - Date.now()) / 86400000
-          )))
-        }
-      }
     }
     load()
   }, [router])
@@ -252,26 +228,6 @@ export default function SettingsPage() {
                 className="text-foreground">Settings</h1>
               <p className="text-sm text-neutral-500 mt-1">Manage your profile and workspace.</p>
             </div>
-
-            {trialDaysLeft !== null && (
-              <div className={`flex items-center justify-between rounded-xl border px-5 py-4 ${
-                trialDaysLeft <= 7
-                  ? "border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-800"
-                  : "border-border"
-              }`}>
-                <div>
-                  <p className={`text-sm font-semibold ${trialDaysLeft <= 7 ? "text-orange-700 dark:text-orange-400" : "text-foreground"}`}>
-                    {planName} plan · {trialDaysLeft === 0 ? "Trial expired" : `${trialDaysLeft} days left in trial`}
-                  </p>
-                  <p className="text-xs mt-0.5 text-neutral-500">Upgrade to keep full access after your trial ends.</p>
-                </div>
-                <Link href="/pricing"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white flex-shrink-0"
-                  style={{ background: `linear-gradient(135deg, #c44a00, ${C.orange})` }}>
-                  Upgrade <ArrowUpRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            )}
 
             {/* Error — now shows real Supabase error message, not just "Failed to save." */}
             {error && (

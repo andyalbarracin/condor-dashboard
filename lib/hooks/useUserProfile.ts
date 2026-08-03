@@ -149,13 +149,9 @@ export function useUserProfile() {
           : (rawPlans as unknown as { name?: string } | null | undefined)?.name
         const planName   = rawName ?? PLAN_NAMES[planId] ?? "Nest"
 
-        const isTrialing = subRes.data?.status === "trialing"
-        let trialDaysLeft: number | null = null
-        if (isTrialing && subRes.data?.trial_end) {
-          trialDaysLeft = Math.max(0, Math.ceil(
-            (new Date(subRes.data.trial_end).getTime() - Date.now()) / 86400000
-          ))
-        }
+        // Trial feature disabled — never surface trial state in the UI.
+        const isTrialing = false
+        const trialDaysLeft: number | null = null
 
         // workspaceName: from DB or null (header shows "My Project" as fallback)
         const workspaceName = wsRes.data?.name ?? null
